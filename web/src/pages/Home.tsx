@@ -1,6 +1,6 @@
 import { ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight, RefreshCw, Settings } from 'lucide-react';
 import { useMemo } from 'react';
-import { accountBalance, accountName, balanceSeries, byCategory, cashflow } from '../calc';
+import { accountBalance, accountName, balanceSeries, byCategory } from '../calc';
 import { category } from '../categories';
 import { Donut } from '../components/Donut';
 import { CoverageCard } from '../components/Coverage';
@@ -46,7 +46,6 @@ export function Home() {
   const r = range(period);
   const accounts = useMemo(() => (data?.accounts ?? []).filter((a) => !a.hidden), [data]);
   const series = useMemo(() => balanceSeries(data?.accounts ?? [], data?.transactions ?? [], r), [data, r.start, r.end]);
-  const cf = useMemo(() => cashflow(txns, r), [txns, r.start, r.end]);
   const cats = useMemo(() => byCategory(txns, r), [txns, r.start, r.end]);
   const { recurring, forecast, insights, coverage } = useInsights();
   const lastSync = data?.items.length
@@ -141,12 +140,6 @@ export function Home() {
             <LinkBankButton>Link a bank</LinkBankButton>
           </div>
         )}
-      </section>
-
-      <section className="card">
-        <h2 className="card-title">Cash flow</h2>
-        <p className="card-sub">{label(period)}</p>
-        <CashflowRows income={cf.income} expense={cf.expense} />
       </section>
 
       <section className="card">
