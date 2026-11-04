@@ -1,0 +1,16 @@
+{
+  "name": "budget-webapp",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Mobile-first budget tracker powered by Plaid. Frontend on GitHub Pages, API on Cloudflare Workers.",
+  "workspaces": [
+    "web",
+    "worker"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w web",
+    "dev:worker": "npm run dev -w worker",
+    "build": "npm run build -w web",
+    "typecheck": "npm run typecheck -w web && npm run typecheck -w worker"
+  }
+}

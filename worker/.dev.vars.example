@@ -1,0 +1,10 @@
+# Copy to .dev.vars for local development (never commit .dev.vars).
+# Generate PASSPHRASE_HASH, SESSION_SECRET and TOKEN_ENCRYPTION_KEY with: npm run secrets -w worker
+PLAID_CLIENT_ID=
+PLAID_SECRET=
+PLAID_ENV=sandbox
+ALLOWED_ORIGINS=http://localhost:5173
+PLAID_REDIRECT_URI=
+PASSPHRASE_HASH=
+SESSION_SECRET=
+TOKEN_ENCRYPTION_KEY=

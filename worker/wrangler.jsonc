@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "budget-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+
+  // Non-secret config. Secrets (PLAID_CLIENT_ID, PLAID_SECRET, PASSPHRASE_HASH,
+  // SESSION_SECRET, TOKEN_ENCRYPTION_KEY) are set with `wrangler secret put`.
+  "vars": {
+    // "sandbox" while testing, "production" for real bank data (Plaid Trial plan).
+    "PLAID_ENV": "sandbox",
+    // Comma-separated list of exact origins allowed to call the API (no path).
+    "ALLOWED_ORIGINS": "https://paksh2909.github.io",
+    // Optional: OAuth redirect URI registered in the Plaid dashboard,
+    // e.g. "https://paksh2909.github.io/Budget-Webapp/". Leave empty to use Plaid's popup flow.
+    "PLAID_REDIRECT_URI": ""
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "budget-db",
+      "database_id": "e74e21b1-a5bf-43ae-ade5-ee5321451d4e",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Local dev listens on loopback only.
+  "dev": { "ip": "127.0.0.1", "port": 8787 }
+}
