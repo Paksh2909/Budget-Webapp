@@ -207,9 +207,16 @@ docs/                   This document and the diagram
 
 ## Deploying changes
 
+Run these from the project root:
+
 | Changed | Run |
 | --- | --- |
 | `web/**` | `git push` (GitHub Actions builds and deploys Pages) |
-| `worker/src/**` or `wrangler.jsonc` | `npm run deploy` in `worker/` |
-| New file in `worker/migrations/` | `npm run db:migrate:remote` **before** deploying the Worker |
-| A secret | `npx wrangler secret put NAME` |
+| `worker/**` (code, `wrangler.jsonc`, or a new migration) | `npm run deploy:worker`, which applies pending migrations, then deploys |
+| A secret | `cd worker && npx wrangler secret put NAME` |
+
+When a change touches both, deploy the Worker **before** pushing, so the new web app never talks to an older API.
+
+If `wrangler` reports an auth error such as code 7403, the local login has expired. Run `npx wrangler login` again.
+
+**Optional automation:** [`docs/ci-cd/`](ci-cd/README.md) contains a ready-made workflow that deploys migrations, the Worker and the web app on every push, along with the security tradeoffs of storing a Cloudflare token in GitHub. It's not enabled.

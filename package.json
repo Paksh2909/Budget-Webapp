@@ -11,6 +11,8 @@
     "dev:web": "npm run dev -w web",
     "dev:worker": "npm run dev -w worker",
     "build": "npm run build -w web",
-    "typecheck": "npm run typecheck -w web && npm run typecheck -w worker"
+    "typecheck": "npm run typecheck -w web && npm run typecheck -w worker",
+    "db:migrate:remote": "npm run db:migrate:remote -w worker",
+    "deploy:worker": "npm run db:migrate:remote -w worker && npm run deploy -w worker"
   }
 }

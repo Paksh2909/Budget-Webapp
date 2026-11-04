@@ -88,6 +88,13 @@ Open `https://<you>.github.io/Budget-Webapp/` on your phone, sign in, and use **
 
 Sandbox test login: username `user_good`, password `pass_good`.
 
+## Deploying updates
+
+- **Web app:** `git push`. GitHub Actions rebuilds and publishes Pages.
+- **Worker and database:** `npm run deploy:worker` from the project root. It applies any new migrations first, then deploys the Worker. If a change touches both, run this **before** pushing.
+
+To have pushes deploy the Worker too, see **[docs/ci-cd/](docs/ci-cd/README.md)**. It includes a ready-made workflow (not enabled) and the security tradeoffs of giving GitHub a Cloudflare token.
+
 ## Local development
 
 ```bash
