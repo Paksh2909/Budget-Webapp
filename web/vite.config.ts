@@ -4,7 +4,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   if (mode === 'production' && !/^https:\/\//.test(env.VITE_API_URL ?? '')) {
-    throw new Error('VITE_API_URL must be set to your Worker URL (https://...) for production builds.');
+    throw new Error(
+      `VITE_API_URL must be set to your Worker URL (https://...) for production builds; got "${env.VITE_API_URL ?? ''}". ` +
+        'On GitHub: Settings > Secrets and variables > Actions > Variables > New repository variable.',
+    );
   }
   return {
     // GitHub Pages serves project sites from /<repo>/; the deploy workflow sets BASE_PATH.

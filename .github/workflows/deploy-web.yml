@@ -28,8 +28,9 @@ jobs:
       - name: Build
         run: npm run build -w web
         env:
-          # Set this repository variable to your Worker URL (Settings > Secrets and variables > Actions > Variables).
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # Your Worker URL, as a repository Variable (preferred) or Secret named VITE_API_URL
+          # (Settings > Secrets and variables > Actions). Not an environment-level variable.
+          VITE_API_URL: ${{ vars.VITE_API_URL || secrets.VITE_API_URL }}
           BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
