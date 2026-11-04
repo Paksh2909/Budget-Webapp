@@ -7,6 +7,9 @@
   "preview_urls": false,
   "observability": { "enabled": true },
 
+  // Background sync: every 15 minutes, refresh the bank that's gone longest without syncing (if > 4h).
+  "triggers": { "crons": ["*/15 * * * *"] },
+
   // Non-secret config. Secrets (PLAID_CLIENT_ID, PLAID_SECRET, PASSPHRASE_HASH,
   // SESSION_SECRET, TOKEN_ENCRYPTION_KEY) are set with `wrangler secret put`.
   "vars": {

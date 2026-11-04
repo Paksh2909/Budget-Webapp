@@ -103,12 +103,15 @@ route('DELETE', '/api/items/:id', async (_req, env, { id }) => {
     await plaid(env, '/item/remove', { access_token: token });
   } catch (err) {
     // Still remove locally if Plaid already forgot the Item.
-    if (!(err instanceof PlaidError && err.errorCode === 'ITEM_NOT_FOUND')) throw err;
+    // e.g. a sandbox bank left over after switching PLAID_ENV to production.
+    const gone = err instanceof PlaidError && ['ITEM_NOT_FOUND', 'INVALID_ACCESS_TOKEN'].includes(err.errorCode);
+    if (!gone) throw err;
   }
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM transactions WHERE item_id = ?`).bind(id),
     env.DB.prepare(`DELETE FROM accounts WHERE item_id = ?`).bind(id),
     env.DB.prepare(`DELETE FROM items WHERE item_id = ?`).bind(id),
+    env.DB.prepare(`DELETE FROM settings WHERE key = ?`).bind(`sync_attempt:${id}`),
   ]);
   return json({ ok: true });
 });
@@ -296,4 +299,54 @@ export default {
     }
     return withCors(res, origin, env);
   },
+
+  /** Cron trigger: keeps data fresh in the background (see "triggers" in wrangler.jsonc). */
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(scheduledSync(env));
+  },
 } satisfies ExportedHandler<Env>;
+
+// Free-plan Workers allow ~50 subrequests per run, so each run syncs only the
+// stalest bank. Runs every 15 minutes, so each bank still refreshes several times a day.
+const STALE_AFTER_HOURS = 4;
+const MAX_CHUNKS_PER_RUN = 2;
+const RETRY_AFTER_MINUTES = 60;
+
+async function scheduledSync(env: Env): Promise<void> {
+  const now = Date.now();
+  const staleCutoff = new Date(now - STALE_AFTER_HOURS * 3600_000).toISOString();
+  const retryCutoff = new Date(now - RETRY_AFTER_MINUTES * 60_000).toISOString();
+  // Skip banks waiting on a reconnect (those need you to sign in again in the app), and banks
+  // attempted recently, so one failing bank can't block the others.
+  const item = await env.DB.prepare(
+    `SELECT i.item_id, i.access_token_enc, i.institution_name, i.cursor FROM items i
+     LEFT JOIN settings s ON s.key = 'sync_attempt:' || i.item_id
+     WHERE i.status != 'login_required'
+       AND (i.last_synced_at IS NULL OR i.last_synced_at < ?1)
+       AND (s.value IS NULL OR s.value < ?2)
+     ORDER BY i.last_synced_at IS NOT NULL, i.last_synced_at
+     LIMIT 1`,
+  )
+    .bind(staleCutoff, retryCutoff)
+    .first<ItemRow>();
+  if (!item) return;
+
+  await env.DB.prepare(
+    `INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  )
+    .bind(`sync_attempt:${item.item_id}`, new Date(now).toISOString())
+    .run();
+
+  try {
+    for (let i = 0; i < MAX_CHUNKS_PER_RUN; i++) {
+      const r = await syncItem(env, item);
+      console.log('scheduled sync', item.institution_name ?? item.item_id, r.status, `+${r.added} ~${r.modified} -${r.removed}`);
+      if (r.status !== 'ok' || !r.hasMore) return;
+      // Continue from the cursor saved by the previous chunk.
+      const next = await env.DB.prepare(`SELECT cursor FROM items WHERE item_id = ?`).bind(item.item_id).first<{ cursor: string }>();
+      item.cursor = next?.cursor ?? item.cursor;
+    }
+  } catch (err) {
+    console.error('scheduled sync failed', item.institution_name ?? item.item_id, (err as Error)?.message);
+  }
+}
