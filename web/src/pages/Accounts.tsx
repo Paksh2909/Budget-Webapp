@@ -1,17 +1,105 @@
-import { AlertTriangle, Eye, EyeOff, LogOut, Plus, RefreshCw, ShieldOff, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, Eye, EyeOff, LogOut, Pencil, Plus, RefreshCw, ShieldOff, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { api, session } from '../api';
 import { accountBalance, accountName, netWorth } from '../calc';
 import { LinkBankButton } from '../components/PlaidLink';
-import { AccountIcon, PageHeader } from '../components/ui';
+import { AccountIcon, PageHeader, Sheet } from '../components/ui';
 import { useData } from '../data';
 import { money, relativeTime } from '../format';
 import { navigate } from '../router';
 import type { Account } from '../types';
 
+function RenameSheet({ account, bank, onClose }: { account: Account; bank: string; onClose: () => void }) {
+  const { data, reload, showToast } = useData();
+  const [name, setName] = useState(account.display_name ?? '');
+  const [busy, setBusy] = useState(false);
+
+  // A few recent transactions help tell look-alike accounts apart.
+  const recent = useMemo(
+    () => (data?.transactions ?? []).filter((t) => t.account_id === account.account_id).slice(0, 3),
+    [data, account.account_id],
+  );
+
+  const save = async (displayName: string | null) => {
+    setBusy(true);
+    try {
+      await api(`/api/accounts/${encodeURIComponent(account.account_id)}`, { method: 'PATCH', body: { displayName } });
+      await reload();
+      onClose();
+    } catch (e) {
+      showToast((e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet title="Rename account" onClose={onClose}>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save(name.trim() || null);
+        }}
+      >
+        <label className="field">
+          <span className="field-label">Name in this app</span>
+          <input value={name} maxLength={60} placeholder={account.name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <div className="txn-detail">
+          <dl>
+            <dt>Bank</dt>
+            <dd>{bank}</dd>
+            <dt>Bank's name</dt>
+            <dd>{account.name}</dd>
+            {account.official_name && account.official_name !== account.name && (
+              <>
+                <dt>Official name</dt>
+                <dd>{account.official_name}</dd>
+              </>
+            )}
+            {account.mask && (
+              <>
+                <dt>Ending in</dt>
+                <dd>••{account.mask}</dd>
+              </>
+            )}
+            <dt>Type</dt>
+            <dd>{account.subtype ?? account.type}</dd>
+            <dt>Balance</dt>
+            <dd>{money(accountBalance(account))}</dd>
+            {recent.length > 0 && (
+              <>
+                <dt>Recent</dt>
+                <dd>
+                  {recent.map((t) => (
+                    <div key={t.id} className="muted small">
+                      {t.date} · {t.merchant_name ?? t.name} · {money(Math.abs(t.amount))}
+                    </div>
+                  ))}
+                </dd>
+              </>
+            )}
+          </dl>
+        </div>
+        <div className="sheet-actions">
+          {account.display_name && (
+            <button type="button" className="btn ghost" disabled={busy} onClick={() => save(null)}>
+              Use bank's name
+            </button>
+          )}
+          <button type="submit" className="btn primary" disabled={busy}>
+            Save
+          </button>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
 export function Accounts() {
   const { data, reload, syncing, syncAll, syncItem, showToast } = useData();
   const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState<{ account: Account; bank: string } | null>(null);
   const items = data?.items ?? [];
   const accounts = data?.accounts ?? [];
 
@@ -103,13 +191,19 @@ export function Accounts() {
               {itemAccounts.map((a) => (
                 <li key={a.account_id} className={a.hidden ? 'dimmed' : ''}>
                   <AccountIcon account={a} />
-                  <span className="acct-text">
-                    <span className="acct-name">
-                      {accountName(a)}
-                      {a.mask && <span className="muted"> ••{a.mask}</span>}
+                  <button
+                    className="acct-text acct-rename"
+                    onClick={() => setRenaming({ account: a, bank: name })}
+                    aria-label={`Rename ${accountName(a)}`}
+                  >
+                    <span className="acct-name-row">
+                      <span className="acct-name">{accountName(a)}</span>
+                      <Pencil size={13} className="muted rename-hint" aria-hidden="true" />
                     </span>
-                    <span className="muted small">{a.subtype ?? a.type}</span>
-                  </span>
+                    <span className="muted small acct-name">
+                      {[a.mask && `••${a.mask}`, a.display_name ? a.name : (a.subtype ?? a.type)].filter(Boolean).join(' · ')}
+                    </span>
+                  </button>
                   <span className={accountBalance(a) < 0 ? 'neg' : ''}>{money(accountBalance(a))}</span>
                   <button
                     className="icon-btn"
@@ -132,6 +226,8 @@ export function Accounts() {
       <p className="hint">
         New banks can take a minute to finish their first import. Tap sync again if transactions look incomplete.
       </p>
+
+      {renaming && <RenameSheet account={renaming.account} bank={renaming.bank} onClose={() => setRenaming(null)} />}
 
       <section className="card">
         <h2 className="card-title">Session</h2>

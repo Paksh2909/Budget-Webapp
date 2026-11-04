@@ -21,20 +21,29 @@ export function TxnRow({ t, account, onClick }: { t: Txn; account: string; onCli
   const detail = t.note ?? (t.merchant_name && t.merchant_name !== sub ? t.merchant_name : t.subcategory ? t.name : null);
   return (
     <button className="txn-row" onClick={onClick}>
-      <span className="txn-pending" aria-label={t.pending ? 'Pending' : undefined}>
-        {t.pending ? <Clock size={22} /> : null}
-      </span>
-      <CategoryIcon id={t.category} logo={t.logo_url} />
+      <CategoryIcon id={t.category} logo={t.logo_url} size={36} />
       <span className="txn-main">
         <span className="txn-title">
           {c.label} <span className="muted-dot">•</span> {sub}
         </span>
-        <span className="txn-account">{account}</span>
-        {detail && <span className="txn-note">{detail}</span>}
+        <span className="txn-meta">
+          <span className="txn-account">{account}</span>
+          {detail && <span className="txn-note"> · {detail}</span>}
+        </span>
       </span>
       <span className="txn-side">
         <span className={isIn ? 'pos' : 'neg'}>{isIn ? '+' + money(-t.amount) : money(t.amount)}</span>
-        {timeOf(t.datetime) && <span className="txn-time">{timeOf(t.datetime)}</span>}
+        {(t.pending || timeOf(t.datetime)) && (
+          <span className="txn-time">
+            {t.pending ? (
+              <>
+                <Clock size={11} aria-hidden="true" /> Pending
+              </>
+            ) : (
+              timeOf(t.datetime)
+            )}
+          </span>
+        )}
       </span>
     </button>
   );
