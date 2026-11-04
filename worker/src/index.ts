@@ -150,7 +150,7 @@ route('PATCH', '/api/accounts/:id', async (req, env, { id }) => {
 // ---------- All data for the app ----------
 
 route('GET', '/api/data', async (_req, env) => {
-  const [items, accounts, transactions, budgets] = await env.DB.batch([
+  const [items, accounts, transactions, budgets, rules] = await env.DB.batch([
     env.DB.prepare(
       `SELECT item_id, institution_name, status, error_code, last_synced_at FROM items ORDER BY created_at`,
     ),
@@ -163,18 +163,54 @@ route('GET', '/api/data', async (_req, env) => {
       `SELECT id, account_id, amount, date, datetime, name, merchant_name, logo_url, pending,
               COALESCE(user_category, category) AS category, category AS auto_category,
               (user_category IS NOT NULL OR user_subcategory IS NOT NULL) AS overridden,
+              user_category IS NOT NULL AS cat_overridden, user_subcategory IS NOT NULL AS sub_overridden,
               NULLIF(COALESCE(user_subcategory, subcategory), '') AS subcategory,
               subcategory AS auto_subcategory, note, source
        FROM transactions ORDER BY date DESC, datetime DESC, id`,
     ),
     env.DB.prepare(`SELECT id, name, amount, categories FROM budgets ORDER BY sort, created_at`),
+    env.DB.prepare(`SELECT id, pattern, category, subcategory FROM rules ORDER BY created_at`),
   ]);
   return json({
     items: items!.results,
     accounts: accounts!.results,
     transactions: transactions!.results,
     budgets: (budgets!.results as { categories: string }[]).map((b) => ({ ...b, categories: JSON.parse(b.categories) })),
+    rules: rules!.results,
   });
+});
+
+// ---------- Auto-categorize rules ----------
+
+function parseRule(body: Record<string, unknown>) {
+  const pattern = str(body.pattern, 'pattern', { max: 80 })!;
+  if (pattern.length < 2) throw new HttpError(400, 'pattern must be at least 2 characters');
+  if (!isCategoryId(body.category)) throw new HttpError(400, 'Invalid category');
+  const subcategory = str(body.subcategory, 'subcategory', { optional: true, max: 60 }) ?? null;
+  return { pattern, category: body.category, subcategory };
+}
+
+route('POST', '/api/rules', async (req, env) => {
+  const r = parseRule(await readJson(req));
+  const id = crypto.randomUUID();
+  await env.DB.prepare(`INSERT INTO rules (id, pattern, category, subcategory, created_at) VALUES (?1, ?2, ?3, ?4, ?5)`)
+    .bind(id, r.pattern, r.category, r.subcategory, nowIso())
+    .run();
+  return json({ id }, 201);
+});
+
+route('PUT', '/api/rules/:id', async (req, env, { id }) => {
+  const r = parseRule(await readJson(req));
+  const res = await env.DB.prepare(`UPDATE rules SET pattern = ?1, category = ?2, subcategory = ?3 WHERE id = ?4`)
+    .bind(r.pattern, r.category, r.subcategory, id)
+    .run();
+  if (!res.meta.changes) throw new HttpError(404, 'Rule not found');
+  return json({ ok: true });
+});
+
+route('DELETE', '/api/rules/:id', async (_req, env, { id }) => {
+  await env.DB.prepare(`DELETE FROM rules WHERE id = ?`).bind(id).run();
+  return json({ ok: true });
 });
 
 // ---------- Transactions ----------

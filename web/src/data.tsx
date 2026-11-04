@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api } from './api';
 import { visibleTxns } from './calc';
 import { EMPTY_FILTERS, type Filters } from './filters';
+import { applyRules } from './rules';
 import { today, type Period } from './period';
 import type { AppData, Txn } from './types';
 
@@ -63,7 +64,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     try {
       setError(null);
-      setData(await api<AppData>('/api/data'));
+      const raw = await api<AppData>('/api/data');
+      const rules = raw.rules ?? [];
+      setData({ ...raw, rules, transactions: applyRules(raw.transactions, rules) });
     } catch (e) {
       setError((e as Error).message);
     } finally {

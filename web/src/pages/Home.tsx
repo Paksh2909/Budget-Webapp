@@ -3,13 +3,16 @@ import { useMemo } from 'react';
 import { accountBalance, accountName, balanceSeries, budgetSpent, byCategory, cashflow } from '../calc';
 import { category } from '../categories';
 import { Donut } from '../components/Donut';
+import { ForecastCard, InsightsCard, RecurringCard } from '../components/HomeCards';
 import { LineChart } from '../components/LineChart';
 import { LinkBankButton } from '../components/PlaidLink';
 import { AccountIcon, CategoryIcon, PageHeader, ProgressRing, Segmented } from '../components/ui';
 import { useData } from '../data';
 import { money, monthShort, relativeTime, signedMoney } from '../format';
 import { isCurrent, label, range, shift, today, toDate, type PeriodKind } from '../period';
+import { forecastMonth } from '../insights';
 import { navigate } from '../router';
+import { useInsights } from '../useInsights';
 
 export function CashflowRows({ income, expense }: { income: number; expense: number }) {
   const net = income - expense;
@@ -46,6 +49,13 @@ export function Home() {
   const cf = useMemo(() => cashflow(txns, r), [txns, r.start, r.end]);
   const cats = useMemo(() => byCategory(txns, r), [txns, r.start, r.end]);
   const month = range({ kind: 'month', anchor: today() });
+  const { recurring, forecast, insights } = useInsights();
+  // A budget covering all spending doubles as the overall monthly target for the forecast.
+  const overall = data?.budgets.find((b) => b.categories.length === 0) ?? null;
+  const budgetForecasts = useMemo(
+    () => new Map((data?.budgets ?? []).map((b) => [b.id, forecastMonth(txns, recurring, { categories: new Set(b.categories) }).projected])),
+    [data, txns, recurring],
+  );
   const lastSync = data?.items.length
     ? data.items.map((i) => i.last_synced_at).sort().reverse()[0] ?? null
     : null;
@@ -110,6 +120,9 @@ export function Home() {
           ariaLabel={`Balance over ${label(period)}, from ${money(series.baseline)} to ${money(series.current)}`}
         />
       </section>
+
+      {txns.length > 0 && <ForecastCard forecast={forecast} budgetTotal={overall?.amount ?? null} />}
+      <InsightsCard insights={insights} />
 
       <section className="card">
         <button className="card-title-row" onClick={() => navigate('/accounts')}>
@@ -197,6 +210,13 @@ export function Home() {
                     <span className="muted small">
                       {money(spent)} of {money(b.amount)}
                     </span>
+                    {(() => {
+                      const proj = budgetForecasts.get(b.id) ?? spent;
+                      if (proj - spent < 1) return null;
+                      return (
+                        <span className={'small ' + (proj > b.amount ? 'neg' : 'muted')}>On pace for {money(proj)}</span>
+                      );
+                    })()}
                   </div>
                   <span className={left >= 0 ? 'pos' : 'neg'}>{signedMoney(left)}</span>
                 </li>
@@ -212,6 +232,8 @@ export function Home() {
           </div>
         )}
       </section>
+
+      {txns.length > 0 && <RecurringCard recurring={recurring} />}
     </div>
   );
 }

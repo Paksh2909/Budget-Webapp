@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../api';
 import { budgetSpent } from '../calc';
+import { forecastMonth } from '../insights';
+import { useInsights } from '../useInsights';
 import { EXPENSE_CATEGORIES, type CategoryId } from '../categories';
 import { CategoryIcon, PageHeader, ProgressRing, Sheet } from '../components/ui';
 import { useData } from '../data';
@@ -92,6 +94,8 @@ export function Budgets() {
   const [editing, setEditing] = useState<Budget | 'new' | null>(null);
   const r = range(month);
   const budgets = data?.budgets ?? [];
+  const { recurring } = useInsights();
+  const current = isCurrent(month);
 
   return (
     <div className="page">
@@ -121,6 +125,7 @@ export function Budgets() {
         const pct = spent / b.amount;
         const left = b.amount - spent;
         const color = pct >= 1 ? 'var(--neg)' : pct >= 0.85 ? '#f59e0b' : 'var(--accent)';
+        const proj = current ? forecastMonth(txns, recurring, { categories: new Set(b.categories) }).projected : spent;
         return (
           <button key={b.id} className="card budget-card" onClick={() => setEditing(b)}>
             <ProgressRing value={pct} size={56} stroke={5} color={color}>
@@ -131,6 +136,11 @@ export function Budgets() {
               <span className="muted small">
                 {money(spent)} of {money(b.amount)}
               </span>
+              {proj - spent >= 1 && (
+                <span className={'small ' + (proj > b.amount ? 'neg' : 'muted')}>
+                  On pace for {money(proj)}{proj > b.amount ? ` · ${money(proj - b.amount)} over` : ''}
+                </span>
+              )}
               <span className="budget-cats">
                 {b.categories.length
                   ? b.categories.map((c) => <CategoryIcon key={c} id={c} size={20} />)

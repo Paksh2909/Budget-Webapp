@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 660" width="960" height="660" role="img" aria-labelledby="title desc">
+  <title id="title">Budget app architecture</title>
+  <desc id="desc">An Android phone loads the app from GitHub Pages, then talks only to a Cloudflare Worker over HTTPS with a session token. The Worker stores data in a Cloudflare D1 database, holds the Plaid secrets, and calls Plaid, which connects to the banks. A cron trigger runs the Worker every 15 minutes to sync in the background. Bank logins happen inside Plaid Link, directly between the phone and Plaid.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d1e23"/>
+      <stop offset="1" stop-color="#16171b"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4a4c55"/>
+    </marker>
+
+    <!-- Paths the animated dots travel along -->
+    <path id="p-pages" d="M140 128 L140 232"/>
+    <path id="p-req" d="M244 282 L376 282"/>
+    <path id="p-res" d="M376 322 L244 322"/>
+    <path id="p-cron" d="M490 118 L490 216"/>
+    <path id="p-w2p" d="M604 282 L716 282"/>
+    <path id="p-p2w" d="M716 322 L604 322"/>
+    <path id="p-p2b" d="M790 228 L790 120"/>
+    <path id="p-b2p" d="M830 120 L830 228"/>
+    <path id="p-w2d" d="M470 374 L470 446"/>
+    <path id="p-d2w" d="M510 446 L510 374"/>
+    <path id="p-link" d="M140 376 L140 572 Q140 582 150 582 L800 582 Q810 582 810 572 L810 376"/>
+
+    <style>
+      .box { fill: #24252b; stroke: #34363e; stroke-width: 1.5; }
+      .title { font: 600 16px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #ececf0; }
+      .sub { font: 12px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #a3a4ac; }
+      .tiny { font: 11px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #8b8d96; }
+      .edge { fill: none; stroke: #4a4c55; stroke-width: 2; }
+      .label { font: 11.5px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #c4c5cc; }
+      .link-edge { fill: none; stroke: #b07cf0; stroke-width: 2; stroke-dasharray: 7 6; animation: dash 1.2s linear infinite; }
+      .lock { fill: #f5c451; }
+      @keyframes dash { to { stroke-dashoffset: -26; } }
+      @keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+      .pulse { animation: pulse 2.4s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) { .link-edge, .pulse { animation: none; } }
+    </style>
+  </defs>
+
+  <rect width="960" height="660" rx="20" fill="url(#bg)"/>
+
+  <!-- Cloudflare region -->
+  <rect x="356" y="30" width="268" height="530" rx="18" fill="none" stroke="#f38020" stroke-opacity="0.45" stroke-width="1.5" stroke-dasharray="4 5"/>
+  <text x="490" y="552" class="tiny" fill="#f38020" text-anchor="middle">CLOUDFLARE · free plan</text>
+
+  <!-- ===== Edges ===== -->
+  <use xlink:href="#p-pages" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-req" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-res" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-cron" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-w2p" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-p2w" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-p2b" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-b2p" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-w2d" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-d2w" class="edge" marker-end="url(#arrow)"/>
+  <use xlink:href="#p-link" class="link-edge"/>
+
+  <!-- Edge labels -->
+  <text x="152" y="176" class="label">app files (HTML/JS),</text>
+  <text x="152" y="191" class="label">loaded once &amp; cached</text>
+  <text x="254" y="272" class="label">HTTPS + token</text>
+  <text x="254" y="342" class="label">your data</text>
+  <text x="500" y="160" class="label">every 15 min</text>
+  <text x="630" y="272" class="label">sync / accounts</text>
+  <text x="634" y="342" class="label">transactions</text>
+  <text x="840" y="170" class="label">bank</text>
+  <text x="840" y="185" class="label">connections</text>
+  <text x="520" y="414" class="label">SQL</text>
+  <text x="480" y="604" class="label" fill="#cba6f7" text-anchor="middle">Plaid Link: you sign in to your bank inside Plaid’s window, never in this app</text>
+
+  <!-- ===== Nodes ===== -->
+  <!-- GitHub Pages -->
+  <rect x="40" y="48" width="200" height="80" rx="14" class="box"/>
+  <text x="60" y="80" class="title">GitHub Pages</text>
+  <text x="60" y="100" class="sub">Static hosting · public repo</text>
+  <text x="60" y="116" class="tiny">no secrets, no data</text>
+
+  <!-- Phone -->
+  <rect x="40" y="236" width="204" height="140" rx="16" class="box" stroke="#6b8cff"/>
+  <rect x="58" y="254" width="34" height="56" rx="7" fill="none" stroke="#6b8cff" stroke-width="2"/>
+  <circle cx="75" cy="303" r="2.5" fill="#6b8cff"/>
+  <text x="104" y="272" class="title">Your phone</text>
+  <text x="104" y="291" class="sub">Android · installed PWA</text>
+  <text x="58" y="330" class="tiny">React app: charts, budgets,</text>
+  <text x="58" y="345" class="tiny">forecasts computed on-device</text>
+  <text x="58" y="362" class="tiny">session token in local storage</text>
+
+  <!-- Cron -->
+  <rect x="400" y="54" width="180" height="64" rx="14" class="box"/>
+  <text x="418" y="82" class="title">Cron trigger</text>
+  <text x="418" y="102" class="sub">Background sync</text>
+  <circle cx="560" cy="76" r="6" fill="#f59e0b" class="pulse"/>
+
+  <!-- Worker -->
+  <rect x="376" y="216" width="228" height="158" rx="16" class="box" stroke="#f38020"/>
+  <text x="396" y="246" class="title">Cloudflare Worker</text>
+  <text x="396" y="265" class="sub">budget-api · TypeScript API</text>
+  <text x="396" y="292" class="tiny">• checks passphrase &amp; session</text>
+  <text x="396" y="308" class="tiny">• CORS allowlist (your site only)</text>
+  <text x="396" y="324" class="tiny">• calls Plaid, writes to D1</text>
+  <rect x="392" y="336" width="196" height="28" rx="8" fill="#2e3036"/>
+  <path class="lock" d="M403 350 h10 v9 h-10z M405 350 v-3 a3 3 0 0 1 6 0 v3" stroke="#f5c451" stroke-width="1.6" fill="none"/>
+  <text x="420" y="355" class="tiny" fill="#e8d9a8">Secrets: Plaid keys, session key</text>
+
+  <!-- D1 -->
+  <rect x="376" y="446" width="228" height="90" rx="14" class="box"/>
+  <ellipse cx="404" cy="470" rx="12" ry="5" fill="none" stroke="#22c55e" stroke-width="2"/>
+  <path d="M392 470 v18 a12 5 0 0 0 24 0 v-18" fill="none" stroke="#22c55e" stroke-width="2"/>
+  <text x="426" y="474" class="title">D1 database</text>
+  <text x="426" y="492" class="sub">SQLite · budget-db</text>
+  <text x="392" y="512" class="tiny">transactions, budgets, rules</text>
+  <text x="392" y="526" class="tiny">bank tokens AES-256 encrypted</text>
+
+  <!-- Plaid -->
+  <rect x="716" y="236" width="204" height="140" rx="16" class="box" stroke="#b07cf0"/>
+  <text x="736" y="268" class="title">Plaid API</text>
+  <text x="736" y="287" class="sub">Trial plan · production</text>
+  <text x="736" y="312" class="tiny">/transactions/sync</text>
+  <text x="736" y="327" class="tiny">/accounts/get</text>
+  <text x="736" y="342" class="tiny">/link/token/create</text>
+
+  <!-- Banks -->
+  <rect x="736" y="48" width="184" height="72" rx="14" class="box"/>
+  <text x="756" y="78" class="title">Your banks</text>
+  <text x="756" y="98" class="sub">Chase, Amex, Capital One…</text>
+
+  <!-- ===== Animated data flow ===== -->
+  <g filter="url(#glow)">
+    <circle r="5" fill="#9aa0a8"><animateMotion dur="3s" repeatCount="indefinite"><mpath xlink:href="#p-pages"/></animateMotion></circle>
+
+    <circle r="5" fill="#6b8cff"><animateMotion dur="2.2s" repeatCount="indefinite"><mpath xlink:href="#p-req"/></animateMotion></circle>
+    <circle r="5" fill="#6b8cff"><animateMotion dur="2.2s" begin="1.1s" repeatCount="indefinite"><mpath xlink:href="#p-res"/></animateMotion></circle>
+
+    <circle r="5" fill="#f59e0b"><animateMotion dur="2.6s" repeatCount="indefinite"><mpath xlink:href="#p-cron"/></animateMotion></circle>
+
+    <circle r="5" fill="#5fd07a"><animateMotion dur="2s" begin="0.4s" repeatCount="indefinite"><mpath xlink:href="#p-w2p"/></animateMotion></circle>
+    <circle r="5" fill="#5fd07a"><animateMotion dur="2s" begin="1.4s" repeatCount="indefinite"><mpath xlink:href="#p-p2w"/></animateMotion></circle>
+    <circle r="5" fill="#5fd07a"><animateMotion dur="2.4s" repeatCount="indefinite"><mpath xlink:href="#p-p2b"/></animateMotion></circle>
+    <circle r="5" fill="#5fd07a"><animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite"><mpath xlink:href="#p-b2p"/></animateMotion></circle>
+
+    <circle r="4.5" fill="#22c55e"><animateMotion dur="1.6s" repeatCount="indefinite"><mpath xlink:href="#p-w2d"/></animateMotion></circle>
+    <circle r="4.5" fill="#22c55e"><animateMotion dur="1.6s" begin="0.8s" repeatCount="indefinite"><mpath xlink:href="#p-d2w"/></animateMotion></circle>
+
+    <circle r="5" fill="#cba6f7"><animateMotion dur="5s" repeatCount="indefinite"><mpath xlink:href="#p-link"/></animateMotion></circle>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(40 636)">
+    <circle cx="6" cy="0" r="5" fill="#6b8cff"/><text x="18" y="4" class="tiny">your requests</text>
+    <circle cx="128" cy="0" r="5" fill="#5fd07a"/><text x="140" y="4" class="tiny">bank data</text>
+    <circle cx="232" cy="0" r="5" fill="#f59e0b"/><text x="244" y="4" class="tiny">scheduled sync</text>
+    <line x1="660" y1="0" x2="690" y2="0" stroke="#b07cf0" stroke-width="2" stroke-dasharray="6 5"/><text x="698" y="4" class="tiny">Plaid Link (bank sign-in)</text>
+  </g>
+</svg>

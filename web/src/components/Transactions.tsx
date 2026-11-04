@@ -5,6 +5,7 @@ import { accountName, MANUAL_ACCOUNT_ID } from '../calc';
 import { CATEGORIES, category, DEFAULT_SUBCATEGORIES, type CategoryId } from '../categories';
 import { useData } from '../data';
 import { money, timeOf } from '../format';
+import { matchText, suggestPattern } from '../rules';
 import type { Account, Txn } from '../types';
 import { CategoryIcon, Sheet } from './ui';
 
@@ -49,7 +50,7 @@ export function TxnRow({ t, account, onClick }: { t: Txn; account: string; onCli
   );
 }
 
-function CategoryPicker({ value, onChange }: { value: CategoryId; onChange: (c: CategoryId) => void }) {
+export function CategoryPicker({ value, onChange }: { value: CategoryId; onChange: (c: CategoryId) => void }) {
   return (
     <div className="cat-grid" role="radiogroup" aria-label="Category">
       {CATEGORIES.map((c) => (
@@ -69,7 +70,7 @@ function CategoryPicker({ value, onChange }: { value: CategoryId; onChange: (c: 
 }
 
 /** Suggested + previously used subcategories for a category. value "" means none. */
-function SubcategoryPicker({ categoryId, value, onChange }: { categoryId: CategoryId; value: string; onChange: (v: string) => void }) {
+export function SubcategoryPicker({ categoryId, value, onChange }: { categoryId: CategoryId; value: string; onChange: (v: string) => void }) {
   const { data } = useData();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
@@ -122,10 +123,19 @@ function SubcategoryPicker({ categoryId, value, onChange }: { categoryId: Catego
 }
 
 export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onClose: () => void }) {
-  const { reload, showToast } = useData();
+  const { data, reload, showToast } = useData();
   const [cat, setCat] = useState<CategoryId>(t.category);
   const [sub, setSub] = useState(t.subcategory ?? '');
   const [note, setNote] = useState(t.note ?? '');
+  const [makeRule, setMakeRule] = useState(false);
+  const [pattern, setPattern] = useState(() => suggestPattern(t));
+  const rule = t.rule_id ? data?.rules.find((r) => r.id === t.rule_id) : undefined;
+  // How many transactions the rule would affect (excluding hand-categorized ones).
+  const ruleMatches = useMemo(() => {
+    const p = pattern.trim().toLowerCase();
+    if (!makeRule || p.length < 2) return 0;
+    return (data?.transactions ?? []).filter((x) => !x.cat_overridden && matchText(x).includes(p)).length;
+  }, [makeRule, pattern, data]);
   const changeCategory = (c: CategoryId) => {
     setCat(c);
     // Keep the subcategory only if it belongs with the new category.
@@ -174,6 +184,16 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
           <dd>{account}</dd>
           <dt>Description</dt>
           <dd>{t.name}</dd>
+          {rule && !t.cat_overridden && (
+            <>
+              <dt>Rule</dt>
+              <dd>
+                <a href="#/rules" className="link">
+                  Contains “{rule.pattern}”
+                </a>
+              </dd>
+            </>
+          )}
         </dl>
       </div>
       <h3 className="field-label">Category</h3>
@@ -184,6 +204,23 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
         <span className="field-label">Note</span>
         <input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="Add a note" />
       </label>
+      {t.source === 'plaid' && (
+        <div className="rule-box">
+          <label className="toggle-row">
+            <input type="checkbox" checked={makeRule} onChange={(e) => setMakeRule(e.target.checked)} />
+            <span>Always categorize matching transactions like this</span>
+          </label>
+          {makeRule && (
+            <label className="field">
+              <span className="field-label">When the description contains</span>
+              <input value={pattern} maxLength={80} onChange={(e) => setPattern(e.target.value)} />
+              <span className="muted small">
+                {pattern.trim().length < 2 ? 'Enter at least 2 characters' : `Matches ${ruleMatches} transaction${ruleMatches === 1 ? '' : 's'}`}
+              </span>
+            </label>
+          )}
+        </div>
+      )}
       <div className="sheet-actions">
         {t.source === 'manual' ? (
           <button className="btn danger" onClick={remove} disabled={busy}>
@@ -196,12 +233,29 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
         ) : null}
         <button
           className="btn primary"
-          disabled={busy}
-          onClick={() => {
+          disabled={busy || (makeRule && pattern.trim().length < 2)}
+          onClick={async () => {
+            if (makeRule) {
+              setBusy(true);
+              try {
+                await api('/api/rules', {
+                  method: 'POST',
+                  body: { pattern: pattern.trim(), category: cat, subcategory: sub || null },
+                });
+              } catch (e) {
+                showToast((e as Error).message);
+                setBusy(false);
+                return;
+              }
+              // Let the new rule decide this transaction too.
+              await save({ category: null, subcategory: null, note: note.trim() || null });
+              showToast(`Rule saved · ${ruleMatches} transaction${ruleMatches === 1 ? '' : 's'} updated`);
+              return;
+            }
             const autoCat = cat === t.auto_category;
             save({
               category: autoCat ? null : cat,
-              // null = follow Plaid; "" = explicitly none
+              // null = follow Plaid (or a rule); "" = explicitly none
               subcategory: autoCat && sub === (t.auto_subcategory ?? '') ? null : sub,
               note: note.trim() || null,
             });

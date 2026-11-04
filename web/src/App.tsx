@@ -10,6 +10,8 @@ import { Budgets } from './pages/Budgets';
 import { Categories } from './pages/Categories';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
+import { Recurring } from './pages/Recurring';
+import { Rules } from './pages/Rules';
 import { Transactions } from './pages/Transactions';
 import { useRoute } from './router';
 
@@ -28,10 +30,16 @@ function Shell() {
       page = <Analytics />;
       break;
     case '/transactions':
-      page = <Transactions />;
+      page = <Transactions key={route.params.get('q') ?? ''} initialQuery={route.params.get('q') ?? ''} />;
       break;
     case '/accounts':
       page = <Accounts />;
+      break;
+    case '/recurring':
+      page = <Recurring />;
+      break;
+    case '/rules':
+      page = <Rules />;
       break;
     case '/budgets':
       page = <Budgets />;

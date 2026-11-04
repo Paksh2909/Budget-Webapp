@@ -41,6 +41,16 @@ export interface Txn {
   auto_subcategory: string | null; // Plaid's
   note: string | null;
   source: 'plaid' | 'manual';
+  cat_overridden: number; // user picked the category by hand
+  sub_overridden: number; // user picked the subcategory by hand
+  rule_id?: string; // set when an auto-categorize rule decided the category
+}
+
+export interface Rule {
+  id: string;
+  pattern: string;
+  category: CategoryId;
+  subcategory: string | null;
 }
 
 export interface Budget {
@@ -55,4 +65,5 @@ export interface AppData {
   accounts: Account[];
   transactions: Txn[];
   budgets: Budget[];
+  rules: Rule[];
 }

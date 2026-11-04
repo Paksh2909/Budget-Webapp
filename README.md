@@ -6,15 +6,13 @@ A mobile-first budget tracker that pulls live balances and transactions from you
 - **API:** Cloudflare Worker + D1 (SQLite), free tier (`worker/`)
 - **Auth:** single-user passphrase → signed 30-day session token
 
-Screens: Home (net worth chart, accounts, cash flow, categories, budgets), Categories (donut + breakdown), Analytics (income/expense trends, averages), Transactions (search, grouped by day, recategorize, notes, cash entries), Accounts (link/reconnect/unlink banks, hide accounts), Budgets (monthly limits, all spending or chosen categories).
+**Screens:** Home (net worth, forecast, insights, accounts, cash flow, categories, budgets, recurring), Categories (donut with subcategory breakdown), Analytics (income/expense trends, averages), Transactions (search, list or calendar, filters, recategorize, notes), Accounts (link/reconnect/unlink, rename, hide), Budgets, Recurring charges, and auto-categorize Rules.
 
-## How it works
+## Architecture
 
-```
-Phone (GitHub Pages PWA) ──HTTPS + Bearer token──▶ Cloudflare Worker ──▶ Plaid API
-                                                        │
-                                                        └──▶ D1 database (encrypted Plaid tokens, transactions, budgets)
-```
+![Architecture: phone ↔ Cloudflare Worker ↔ Plaid, with D1 storage and a 15-minute background sync](docs/architecture.svg)
+
+The full write-up covers each flow step by step (sign-in, linking a bank, syncing), the data model, how categories are decided, and the security model: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 Plaid secrets and bank access tokens never reach the browser. The Worker:
 

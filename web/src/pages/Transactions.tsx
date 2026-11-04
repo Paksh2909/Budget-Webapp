@@ -75,9 +75,9 @@ function CalendarView({ month, txns, onPickDay }: { month: string; txns: Txn[]; 
   );
 }
 
-export function Transactions() {
+export function Transactions({ initialQuery = '' }: { initialQuery?: string }) {
   const { data, txns, period, setPeriod, filters } = useData();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [limit, setLimit] = useState(PAGE);
   const [editing, setEditing] = useState<Txn | null>(null);
   const [showFilters, setShowFilters] = useState(false);

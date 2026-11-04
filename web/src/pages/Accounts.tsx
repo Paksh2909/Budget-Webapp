@@ -1,4 +1,4 @@
-import { AlertTriangle, Eye, EyeOff, LogOut, Pencil, Plus, RefreshCw, ShieldOff, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Eye, EyeOff, LogOut, Pencil, Plus, Repeat, RefreshCw, ShieldOff, Trash2, Wand2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { api, session } from '../api';
 import { accountBalance, accountName, netWorth } from '../calc';
@@ -228,6 +228,22 @@ export function Accounts() {
       </p>
 
       {renaming && <RenameSheet account={renaming.account} bank={renaming.bank} onClose={() => setRenaming(null)} />}
+
+      <section className="card">
+        <h2 className="card-title">Tools</h2>
+        <div className="stack">
+          <button className="link-row" onClick={() => navigate('/rules')}>
+            <Wand2 size={20} aria-hidden="true" />
+            <span>Auto-categorize rules</span>
+            <ChevronRight size={18} className="muted" aria-hidden="true" />
+          </button>
+          <button className="link-row" onClick={() => navigate('/recurring')}>
+            <Repeat size={20} aria-hidden="true" />
+            <span>Recurring charges</span>
+            <ChevronRight size={18} className="muted" aria-hidden="true" />
+          </button>
+        </div>
+      </section>
 
       <section className="card">
         <h2 className="card-title">Session</h2>
