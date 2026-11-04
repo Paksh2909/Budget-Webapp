@@ -6,7 +6,7 @@ A mobile-first budget tracker that pulls live balances and transactions from you
 - **API:** Cloudflare Worker + D1 (SQLite), free tier (`worker/`)
 - **Auth:** single-user passphrase → signed 30-day session token
 
-**Screens:** Home (net worth, forecast, upcoming bills, insights, accounts, categories, recurring), Categories (tappable donut with subcategory breakdown), Analytics (income/expense trends, cash flow, averages), Transactions (search, list or calendar, filters, recategorize, notes, track as bill), Accounts (link/reconnect/unlink, rename, hide, statement access), Recurring charges, and auto-categorize Rules.
+**Screens:** Home (customizable: drag to reorder or hide net worth, forecast, upcoming bills, insights, accounts, categories, recurring), Categories (tappable donut with subcategory breakdown), Analytics (income/expense trends, cash flow, averages), Transactions (search, list or calendar, filters, recategorize, notes, track as bill), Accounts (link/reconnect/unlink, rename, hide, statement access), Recurring charges, and auto-categorize Rules.
 
 ## Architecture
 

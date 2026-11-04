@@ -77,9 +77,15 @@ export interface TrackedBill {
   day_end: number;
 }
 
+export interface HomeLayout {
+  order: string[];
+  hidden: string[];
+}
+
 export interface AppSettings {
   billPayAccount: string | null;
   cushion: number | null;
+  homeLayout: HomeLayout | null;
 }
 
 export interface AppData {

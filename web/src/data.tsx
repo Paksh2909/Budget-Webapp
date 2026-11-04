@@ -71,7 +71,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         rules,
         statements: raw.statements ?? [],
         bills: raw.bills ?? [],
-        settings: raw.settings ?? { billPayAccount: null, cushion: null },
+        settings: {
+          billPayAccount: raw.settings?.billPayAccount ?? null,
+          cushion: raw.settings?.cushion ?? null,
+          homeLayout: raw.settings?.homeLayout ?? null,
+        },
         transactions: applyRules(raw.transactions, rules),
       });
     } catch (e) {

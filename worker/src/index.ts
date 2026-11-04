@@ -200,7 +200,7 @@ route('GET', '/api/data', async (_req, env) => {
        FROM card_statements`,
     ),
     env.DB.prepare(`SELECT id, name, pattern, account_id, day_start, day_end FROM bills ORDER BY created_at`),
-    env.DB.prepare(`SELECT key, value FROM settings WHERE key IN ('bill_pay_account', 'coverage_cushion')`),
+    env.DB.prepare(`SELECT key, value FROM settings WHERE key IN ('bill_pay_account', 'coverage_cushion', 'home_layout')`),
   ]);
   const s = Object.fromEntries((settings!.results as { key: string; value: string }[]).map((r) => [r.key, r.value]));
   return json({
@@ -213,6 +213,7 @@ route('GET', '/api/data', async (_req, env) => {
     settings: {
       billPayAccount: s.bill_pay_account ?? null,
       cushion: s.coverage_cushion !== undefined ? Number(s.coverage_cushion) : null,
+      homeLayout: s.home_layout ? JSON.parse(s.home_layout) : null,
     },
   });
 });
@@ -275,6 +276,17 @@ route('PUT', '/api/settings', async (req, env) => {
       if (!ok) throw new HttpError(400, 'Unknown account');
     }
     stmts.push(upsert('bill_pay_account', id));
+  }
+  if ('homeLayout' in body) {
+    // { order: string[], hidden: string[] } of tile ids; ids are validated by shape only so new tiles need no backend change.
+    const l = body.homeLayout as { order?: unknown; hidden?: unknown } | null;
+    if (l === null) stmts.push(upsert('home_layout', null));
+    else {
+      const ids = (v: unknown) =>
+        Array.isArray(v) && v.length <= 30 && v.every((x) => typeof x === 'string' && /^[a-z][a-z0-9-]{0,30}$/.test(x));
+      if (typeof l !== 'object' || !ids(l.order) || !ids(l.hidden)) throw new HttpError(400, 'Invalid homeLayout');
+      stmts.push(upsert('home_layout', JSON.stringify({ order: l.order, hidden: l.hidden })));
+    }
   }
   if ('cushion' in body) {
     stmts.push(upsert('coverage_cushion', body.cushion === null ? null : String(num(body.cushion, 'cushion', { min: 0, max: 1e7 }))));

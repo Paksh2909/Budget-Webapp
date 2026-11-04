@@ -1,5 +1,8 @@
-import { ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight, RefreshCw, Settings } from 'lucide-react';
-import { useMemo } from 'react';
+import { ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight, LayoutGrid, RefreshCw, Settings } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { api } from '../api';
+import { HomeEditor } from '../components/HomeEditor';
+import { resolveLayout, type TileId } from '../homeLayout';
 import { accountBalance, accountName, balanceSeries, byCategory } from '../calc';
 import { category } from '../categories';
 import { Donut } from '../components/Donut';
@@ -42,7 +45,22 @@ function shortDate(d: string) {
 }
 
 export function Home() {
-  const { data, txns, period, setPeriod, syncing, syncAll } = useData();
+  const { data, txns, period, setPeriod, syncing, syncAll, reload, showToast } = useData();
+  const saved = useMemo(() => resolveLayout(data?.settings.homeLayout ?? null), [data]);
+  const [editing, setEditing] = useState<{ order: TileId[]; hidden: Set<TileId> } | null>(null);
+  const layout = editing ?? saved;
+
+  const finishEditing = async () => {
+    if (!editing) return;
+    const draft = editing;
+    setEditing(null);
+    try {
+      await api('/api/settings', { method: 'PUT', body: { homeLayout: { order: draft.order, hidden: [...draft.hidden] } } });
+      await reload();
+    } catch (e) {
+      showToast(`Couldn't save layout: ${(e as Error).message}`);
+    }
+  };
   const r = range(period);
   const accounts = useMemo(() => (data?.accounts ?? []).filter((a) => !a.hidden), [data]);
   const series = useMemo(() => balanceSeries(data?.accounts ?? [], data?.transactions ?? [], r), [data, r.start, r.end]);
@@ -58,22 +76,8 @@ export function Home() {
       : series.dates.map(shortDate);
   const change = series.current - series.baseline;
 
-  return (
-    <div className="page">
-      <PageHeader
-        title="Home"
-        actions={
-          <>
-            <button className="icon-btn" onClick={syncAll} disabled={syncing} aria-label={`Sync banks, last synced ${relativeTime(lastSync)}`}>
-              <RefreshCw size={24} className={syncing ? 'spin' : ''} />
-            </button>
-            <button className="icon-btn" onClick={() => navigate('/accounts')} aria-label="Settings and accounts">
-              <Settings size={24} />
-            </button>
-          </>
-        }
-      />
-
+  const tiles: Record<TileId, ReactNode> = {
+    balance: (
       <section className="card">
         <h2 className="card-title">Total balance</h2>
         <Segmented<PeriodKind>
@@ -112,11 +116,11 @@ export function Home() {
           ariaLabel={`Balance over ${label(period)}, from ${money(series.baseline)} to ${money(series.current)}`}
         />
       </section>
-
-      {txns.length > 0 && <ForecastCard forecast={forecast} />}
-      {coverage && txns.length > 0 && <CoverageCard coverage={coverage} />}
-      <InsightsCard insights={insights} />
-
+    ),
+    forecast: <>{txns.length > 0 ? <ForecastCard forecast={forecast} /> : null}</>,
+    bills: <>{coverage && txns.length > 0 ? <CoverageCard coverage={coverage} /> : null}</>,
+    insights: <InsightsCard insights={insights} />,
+    accounts: (
       <section className="card">
         <button className="card-title-row" onClick={() => navigate('/accounts')}>
           <h2 className="card-title">Accounts</h2>
@@ -141,7 +145,8 @@ export function Home() {
           </div>
         )}
       </section>
-
+    ),
+    categories: (
       <section className="card">
         <button className="card-title-row" onClick={() => navigate('/categories')}>
           <div>
@@ -170,8 +175,57 @@ export function Home() {
           </ul>
         </div>
       </section>
+    ),
+    recurring: <>{txns.length > 0 ? <RecurringCard recurring={recurring} /> : null}</>,
+  };
 
-      {txns.length > 0 && <RecurringCard recurring={recurring} />}
+  return (
+    <div className="page">
+      <PageHeader
+        title="Home"
+        actions={
+          editing ? (
+            <>
+              <button className="btn ghost small" onClick={() => setEditing(resolveLayout(null))}>
+                Reset
+              </button>
+              <button className="btn primary small" onClick={finishEditing}>
+                Done
+              </button>
+            </>
+          ) : (
+          <>
+            <button className="icon-btn" onClick={() => setEditing({ order: [...saved.order], hidden: new Set(saved.hidden) })} aria-label="Customize Home">
+              <LayoutGrid size={22} />
+            </button>
+            <button className="icon-btn" onClick={syncAll} disabled={syncing} aria-label={`Sync banks, last synced ${relativeTime(lastSync)}`}>
+              <RefreshCw size={24} className={syncing ? 'spin' : ''} />
+            </button>
+            <button className="icon-btn" onClick={() => navigate('/accounts')} aria-label="Settings and accounts">
+              <Settings size={24} />
+            </button>
+          </>
+          )
+        }
+      />
+
+      {editing && <HomeEditor order={editing.order} hidden={editing.hidden} onChange={(order, hidden) => setEditing({ order, hidden })} />}
+
+      {layout.order
+        .filter((id) => !layout.hidden.has(id))
+        .map((id) => (
+          <div key={id} className="tile">
+            {tiles[id]}
+          </div>
+        ))}
+      {layout.order.every((id) => layout.hidden.has(id)) && !editing && (
+        <div className="empty card">
+          <p>All tiles are hidden.</p>
+          <button className="btn primary" onClick={() => setEditing({ order: [...saved.order], hidden: new Set() })}>
+            Customize Home
+          </button>
+        </div>
+      )}
     </div>
   );
 }

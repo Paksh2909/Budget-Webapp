@@ -155,7 +155,7 @@ erDiagram
         int day_end
     }
     settings {
-        text key PK "session_version, sync_attempt:*, bill_pay_account, coverage_cushion"
+        text key PK "session_version, sync_attempt:*, bill_pay_account, coverage_cushion, home_layout"
         text value
     }
 ```
