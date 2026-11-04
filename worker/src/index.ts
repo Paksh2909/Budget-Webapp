@@ -1,7 +1,7 @@
 import { handleLogin, handleLogoutAll, requireAuth } from './auth';
 import { CATEGORY_IDS, isCategoryId } from './categories';
 import { decryptString, encryptString } from './crypto';
-import { HttpError, isAllowedOrigin, isoDate, json, nowIso, num, readJson, str, withCors, type Env } from './http';
+import { HttpError, isAllowedOrigin, json, nowIso, num, readJson, str, withCors, type Env } from './http';
 import { plaid, PlaidError } from './plaid';
 import { refreshAccounts, syncItem, type ItemRow } from './sync';
 
@@ -23,7 +23,6 @@ function route(method: string, path: string, handler: Handler, opts: { public?: 
   routes.push({ method, pattern, keys, handler, public: opts.public });
 }
 
-const MANUAL_ACCOUNT_ID = 'cash';
 
 // ---------- Public ----------
 
@@ -176,33 +175,6 @@ route('GET', '/api/data', async (_req, env) => {
 });
 
 // ---------- Transactions ----------
-
-route('POST', '/api/transactions', async (req, env) => {
-  const body = await readJson(req);
-  if (!isCategoryId(body.category)) throw new HttpError(400, 'Invalid category');
-  const amount = num(body.amount, 'amount', { min: -1e7, max: 1e7 });
-  if (amount === 0) throw new HttpError(400, 'amount must not be zero');
-  const id = `manual_${crypto.randomUUID()}`;
-  const now = nowIso();
-  await env.DB.prepare(
-    `INSERT INTO transactions (id, account_id, item_id, amount, date, datetime, name, pending, category, note, source, updated_at, subcategory)
-     VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'manual', ?9, ?10)`,
-  )
-    .bind(
-      id,
-      MANUAL_ACCOUNT_ID,
-      amount,
-      isoDate(body.date, 'date'),
-      null,
-      str(body.name, 'name', { max: 120 }),
-      body.category,
-      str(body.note, 'note', { optional: true, max: 300 }) ?? null,
-      now,
-      str(body.subcategory, 'subcategory', { optional: true, max: 60 }) ?? null,
-    )
-    .run();
-  return json({ id }, 201);
-});
 
 route('PATCH', '/api/transactions/:id', async (req, env, { id }) => {
   const body = await readJson(req);

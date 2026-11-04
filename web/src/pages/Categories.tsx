@@ -96,7 +96,7 @@ export function Categories() {
                   aria-expanded={open}
                   aria-label={`${meta.label}, ${money(c.total)}, ${Math.round(c.share * 100)} percent. ${open ? 'Hide' : 'Show'} subcategories`}
                 >
-                  <CategoryIcon id={c.id} size={56} />
+                  <CategoryIcon id={c.id} size={46} />
                   <span className="cat-body">
                     <span className="cat-line">
                       <span className="cat-name">{meta.label}</span>

@@ -1,9 +1,9 @@
-import { CalendarClock, LayoutGrid, List, Plus, Search, X } from 'lucide-react';
+import { CalendarClock, LayoutGrid, List, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cashflow, isIncome, isTransfer } from '../calc';
 import { category } from '../categories';
 import { FiltersSheet } from '../components/FiltersSheet';
-import { accountLabel, AddTxnSheet, TxnRow, TxnSheet } from '../components/Transactions';
+import { accountLabel, TxnRow, TxnSheet } from '../components/Transactions';
 import { ActiveFilters, FilterButton, PeriodBar } from '../components/ui';
 import { useData } from '../data';
 import { applyFilters } from '../filters';
@@ -80,7 +80,6 @@ export function Transactions() {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const [editing, setEditing] = useState<Txn | null>(null);
-  const [adding, setAdding] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<'list' | 'calendar'>(() => (localStorage.getItem(VIEW_KEY) === 'calendar' ? 'calendar' : 'list'));
   const sentinel = useRef<HTMLDivElement>(null);
@@ -221,12 +220,8 @@ export function Transactions() {
         </>
       )}
 
-      <button className="fab" onClick={() => setAdding(true)} aria-label="Add cash transaction">
-        <Plus size={30} />
-      </button>
 
       {editing && <TxnSheet t={editing} account={accountLabel(editing, accounts)} onClose={() => setEditing(null)} />}
-      {adding && <AddTxnSheet onClose={() => setAdding(false)} />}
       {showFilters && <FiltersSheet onClose={() => setShowFilters(false)} />}
     </div>
   );

@@ -152,7 +152,7 @@ export function Home() {
         </button>
         <div className="mini-cats">
           <Donut
-            size={130}
+            size={112}
             thickness={12}
             segments={cats.map((c) => ({ value: c.total, color: category(c.id).color, label: category(c.id).label }))}
             center={<span className="neg small">Expense</span>}

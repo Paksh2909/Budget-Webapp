@@ -123,7 +123,7 @@ export function Budgets() {
         const color = pct >= 1 ? 'var(--neg)' : pct >= 0.85 ? '#f59e0b' : 'var(--accent)';
         return (
           <button key={b.id} className="card budget-card" onClick={() => setEditing(b)}>
-            <ProgressRing value={pct} size={64} stroke={5} color={color}>
+            <ProgressRing value={pct} size={56} stroke={5} color={color}>
               <span className="small">{Math.round(pct * 100)}%</span>
             </ProgressRing>
             <span className="budget-text">

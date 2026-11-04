@@ -112,7 +112,7 @@ export function FiltersSheet({ onClose, showTypes = true }: { onClose: () => voi
             return (
               <li key={a.account_id}>
                 <button className="check-row" role="checkbox" aria-checked={on} onClick={() => setDraft({ ...draft, accounts: toggle(draft.accounts, a.account_id) })}>
-                  <AccountIcon account={a} size={48} />
+                  <AccountIcon account={a} size={40} />
                   <span className="check-text">
                     <span>{accountName(a)}</span>
                     <span className="muted">{money(accountBalance(a))}</span>
@@ -130,8 +130,8 @@ export function FiltersSheet({ onClose, showTypes = true }: { onClose: () => voi
                 aria-checked={draft.accounts.includes(MANUAL_ACCOUNT_ID)}
                 onClick={() => setDraft({ ...draft, accounts: toggle(draft.accounts, MANUAL_ACCOUNT_ID) })}
               >
-                <span className="acct-icon" style={{ background: '#16a34a', width: 48, height: 48 }} aria-hidden="true">
-                  <Wallet size={24} color="#fff" />
+                <span className="acct-icon" style={{ background: '#16a34a', width: 40, height: 40 }} aria-hidden="true">
+                  <Wallet size={20} color="#fff" />
                 </span>
                 <span className="check-text">
                   <span>Cash</span>
@@ -154,7 +154,7 @@ export function FiltersSheet({ onClose, showTypes = true }: { onClose: () => voi
               <li key={c.id}>
                 <div className="check-row-wrap">
                   <button className="check-row" role="checkbox" aria-checked={on ? true : someSubs ? 'mixed' : false} onClick={() => toggleCategory(c.id)}>
-                    <CategoryIcon id={c.id} size={48} />
+                    <CategoryIcon id={c.id} size={40} />
                     <span className="check-text">
                       <span>{c.label}</span>
                       {subs.length > 0 && <span className="muted small">{subs.length} subcategor{subs.length === 1 ? 'y' : 'ies'}</span>}

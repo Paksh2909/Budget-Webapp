@@ -10,8 +10,8 @@
   --accent: #6b8cff;
   --link: #6f93f5;
   --fab: #5b7fe6;
-  --radius: 24px;
-  --nav-h: 80px;
+  --radius: 20px;
+  --nav-h: 72px;
   color-scheme: dark;
   font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   -webkit-text-size-adjust: 100%;
@@ -30,7 +30,7 @@ body {
 }
 
 body {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.35;
   -webkit-tap-highlight-color: transparent;
 }
@@ -65,12 +65,12 @@ p {
 
 input {
   font: inherit;
-  font-size: 16px; /* prevents iOS zoom */
+  font-size: 14px;
   color: var(--text);
   background: var(--surface-2);
   border: 1px solid transparent;
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 11px 14px;
   width: 100%;
 }
 
@@ -93,7 +93,7 @@ input[type='date'] {
   color: var(--muted);
 }
 .small {
-  font-size: 14px;
+  font-size: 12px;
 }
 .error {
   color: var(--neg);
@@ -130,7 +130,7 @@ input[type='date'] {
 }
 
 .page-header h1 {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 400;
   flex: 1;
   padding-left: 6px;
@@ -159,21 +159,21 @@ input[type='date'] {
 .card {
   background: var(--card);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
 }
 
 .card-title {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 500;
 }
 
 .card-sub {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   margin-top: 2px;
 }
 
@@ -203,7 +203,7 @@ input[type='date'] {
 
 .hint {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   padding: 0 6px;
 }
 
@@ -220,8 +220,8 @@ input[type='date'] {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 0 22px;
+  min-height: 42px;
+  padding: 0 18px;
   border-radius: 999px;
   font-weight: 500;
   background: var(--surface-2);
@@ -242,7 +242,7 @@ input[type='date'] {
 .btn.small {
   min-height: 36px;
   padding: 0 14px;
-  font-size: 14px;
+  font-size: 12px;
 }
 .btn.block {
   width: 100%;
@@ -264,7 +264,7 @@ input[type='date'] {
   border-radius: 999px;
   color: var(--muted);
   font-weight: 500;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .segmented button.active {
@@ -285,7 +285,7 @@ input[type='date'] {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 20px;
+  font-size: 18px;
   padding: 8px 6px;
 }
 
@@ -312,18 +312,18 @@ input[type='date'] {
 }
 
 .big-number {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 400;
   letter-spacing: -0.3px;
 }
 
 .big-number.small-big {
-  font-size: 24px;
+  font-size: 21px;
 }
 
 .sub {
   color: var(--muted);
-  font-size: 16px;
+  font-size: 14px;
   margin-top: 2px;
 }
 
@@ -382,7 +382,7 @@ input[type='date'] {
   grid-template-columns: 28px 1fr auto;
   align-items: center;
   gap: 8px;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .cf-total {
@@ -390,12 +390,12 @@ input[type='date'] {
   justify-content: space-between;
   border-top: 1px solid var(--surface-2);
   padding: 14px 0 0 36px;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .mini-cats {
   display: grid;
-  grid-template-columns: 130px 1fr;
+  grid-template-columns: 112px 1fr;
   gap: 16px;
   align-items: center;
 }
@@ -407,7 +407,7 @@ input[type='date'] {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 15px;
+  font-size: 13px;
   min-width: 0;
 }
 
@@ -447,7 +447,7 @@ input[type='date'] {
 }
 
 .ring-pct {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -457,7 +457,7 @@ input[type='date'] {
   gap: 2px;
   min-width: 0;
   flex: 1;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .ring {
@@ -491,7 +491,7 @@ input[type='date'] {
 
 .chart-axis {
   fill: var(--text);
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .chart-empty {
@@ -511,7 +511,7 @@ input[type='date'] {
 
 .donut-label {
   fill: var(--text);
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .donut-center {
@@ -526,13 +526,13 @@ input[type='date'] {
 }
 
 .donut-total {
-  font-size: 20px;
+  font-size: 18px;
   opacity: 0.75;
 }
 
 .donut-total.strong {
   opacity: 1;
-  font-size: 22px;
+  font-size: 19px;
 }
 
 /* ---------- categories ---------- */
@@ -571,7 +571,7 @@ input[type='date'] {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .cat-name {
@@ -601,7 +601,7 @@ input[type='date'] {
 }
 
 .cat-pct {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--muted);
   min-width: 38px;
   text-align: right;
@@ -629,14 +629,14 @@ input[type='date'] {
   background: var(--card);
   border-radius: 999px;
   padding: 6px 12px 6px 24px;
-  min-height: 64px;
+  min-height: 54px;
 }
 
 .search-bar input {
   background: transparent;
   border: 0;
   padding: 10px 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .search-bar input::-webkit-search-cancel-button {
@@ -655,13 +655,13 @@ input[type='date'] {
   padding: 8px 14px;
   border-radius: 999px;
   background: var(--surface-2);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .totals-row {
   display: flex;
   justify-content: space-between;
-  font-size: 17px;
+  font-size: 15px;
   padding: 0 6px;
 }
 
@@ -683,30 +683,30 @@ input[type='date'] {
 }
 
 .day-num {
-  font-size: 24px;
+  font-size: 21px;
   text-align: center;
 }
 
 .day-text {
   display: flex;
   flex-direction: column;
-  font-size: 18px;
+  font-size: 16px;
   padding-left: 12px;
 }
 
 .day-sum {
   color: var(--muted);
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .txn-row {
   display: grid;
-  grid-template-columns: 28px 52px 1fr auto;
+  grid-template-columns: 24px 44px 1fr auto;
   align-items: center;
   gap: 14px;
-  padding: 12px 6px;
+  padding: 9px 6px;
   width: 100%;
-  border-radius: 16px;
+  border-radius: 14px;
 }
 
 .txn-row:active {
@@ -714,8 +714,8 @@ input[type='date'] {
 }
 
 .txn-row .cat-icon {
-  width: 52px !important;
-  height: 52px !important;
+  width: 44px !important;
+  height: 44px !important;
   border-radius: 16px;
 }
 
@@ -732,7 +732,7 @@ input[type='date'] {
 }
 
 .txn-title {
-  font-size: 18px;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -744,7 +744,7 @@ input[type='date'] {
 
 .txn-account {
   color: var(--link);
-  font-size: 16px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -752,7 +752,7 @@ input[type='date'] {
 
 .txn-note {
   color: var(--muted);
-  font-size: 16px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -762,32 +762,18 @@ input[type='date'] {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .txn-time {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .sentinel {
   height: 40px;
 }
 
-.fab {
-  position: fixed;
-  right: max(20px, calc((100vw - 560px) / 2 + 20px));
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 20px);
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  background: var(--fab);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-  z-index: 5;
-}
 
 /* ---------- sheets ---------- */
 
@@ -833,7 +819,7 @@ input[type='date'] {
 }
 
 .sheet-header h2 {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -869,7 +855,7 @@ input[type='date'] {
   justify-content: space-between;
   align-items: center;
   padding: 16px 8px;
-  font-size: 18px;
+  font-size: 16px;
   border-radius: 12px;
 }
 
@@ -885,7 +871,7 @@ input[type='date'] {
 
 .field-label {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -903,7 +889,7 @@ input[type='date'] {
   padding: 10px 4px;
   border-radius: 16px;
   border: 2px solid transparent;
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
 }
 
@@ -929,7 +915,7 @@ input[type='date'] {
 }
 
 .big-amount {
-  font-size: 32px;
+  font-size: 28px;
 }
 
 /* ---------- accounts ---------- */
@@ -962,7 +948,7 @@ input[type='date'] {
   color: #fbbf24;
   padding: 10px 12px;
   border-radius: 14px;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .warning span {
@@ -988,7 +974,7 @@ input[type='date'] {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 /* ---------- analytics ---------- */
@@ -996,7 +982,7 @@ input[type='date'] {
 .avg-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .avg-table th {
@@ -1024,7 +1010,7 @@ input[type='date'] {
 
 .login h1 {
   font-weight: 400;
-  font-size: 32px;
+  font-size: 28px;
 }
 
 .login-card {
@@ -1059,8 +1045,8 @@ input[type='date'] {
 .nav-pill {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 34px;
+  width: 58px;
+  height: 30px;
   border-radius: 999px;
 }
 
@@ -1073,7 +1059,7 @@ input[type='date'] {
 }
 
 .nav-label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -1109,7 +1095,7 @@ input[type='date'] {
   padding: 12px 18px;
   border-radius: 12px;
   max-width: 90vw;
-  font-size: 15px;
+  font-size: 13px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
@@ -1148,7 +1134,7 @@ input[type='date'] {
   }
   .txn-title,
   .txn-side {
-    font-size: 16px;
+    font-size: 14px;
   }
 }
 
@@ -1158,18 +1144,18 @@ input[type='date'] {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .option-text .muted {
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .option-icon {
   display: flex;
   align-items: center;
   gap: 18px;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .check-badge {
@@ -1240,7 +1226,7 @@ input[type='date'] {
 
 .sheet.full .sheet-header h2 {
   flex: 1;
-  font-size: 28px;
+  font-size: 25px;
   font-weight: 400;
 }
 
@@ -1267,7 +1253,7 @@ input[type='date'] {
   flex: 1;
   padding: 14px 0 12px;
   text-align: center;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--muted);
   border-bottom: 3px solid transparent;
   display: inline-flex;
@@ -1284,7 +1270,7 @@ input[type='date'] {
 .tab-count {
   background: var(--accent);
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   min-width: 20px;
   height: 20px;
   border-radius: 10px;
@@ -1330,7 +1316,7 @@ input[type='date'] {
   flex: 1;
   display: flex;
   flex-direction: column;
-  font-size: 19px;
+  font-size: 17px;
   min-width: 0;
 }
 
@@ -1341,7 +1327,7 @@ input[type='date'] {
 }
 
 .check-row.sub .check-text {
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .checkbox {
@@ -1407,7 +1393,7 @@ input[type='date'] {
   border-radius: 30px;
   background: var(--fab);
   color: #fff;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
@@ -1434,7 +1420,7 @@ input[type='date'] {
   min-width: 160px;
   border-radius: 999px;
   padding: 8px 14px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* ---------- categories breakdown ---------- */
@@ -1465,7 +1451,7 @@ input[type='date'] {
   width: 100%;
   padding: 8px 4px;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .sub-row:active {
@@ -1493,7 +1479,7 @@ input[type='date'] {
 .cal-head span {
   text-align: center;
   padding: 10px 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
   border-bottom: 1px solid var(--surface-2);
 }
@@ -1504,7 +1490,7 @@ input[type='date'] {
 }
 
 .cal-cell {
-  min-height: 92px;
+  min-height: 78px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1529,7 +1515,7 @@ input[type='date'] {
 }
 
 .cal-day {
-  font-size: 17px;
+  font-size: 15px;
   width: 28px;
   height: 28px;
   display: grid;

@@ -1,14 +1,12 @@
-import { Clock } from 'lucide-react';
-import { Plus } from 'lucide-react';
+import { Clock, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { accountName, MANUAL_ACCOUNT_ID } from '../calc';
 import { CATEGORIES, category, DEFAULT_SUBCATEGORIES, type CategoryId } from '../categories';
 import { useData } from '../data';
 import { money, timeOf } from '../format';
-import { today } from '../period';
 import type { Account, Txn } from '../types';
-import { CategoryIcon, Segmented, Sheet } from './ui';
+import { CategoryIcon, Sheet } from './ui';
 
 export function accountLabel(t: Txn, accounts: Map<string, Account>): string {
   if (t.account_id === MANUAL_ACCOUNT_ID) return 'Cash';
@@ -201,90 +199,6 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
           }}
         >
           Save
-        </button>
-      </div>
-    </Sheet>
-  );
-}
-
-export function AddTxnSheet({ onClose }: { onClose: () => void }) {
-  const { reload, showToast } = useData();
-  const [kind, setKind] = useState<'expense' | 'income'>('expense');
-  const [amount, setAmount] = useState('');
-  const [name, setName] = useState('');
-  const [date, setDate] = useState(today());
-  const [cat, setCat] = useState<CategoryId>('food');
-  const [sub, setSub] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const value = Number(amount.replace(/[^0-9.]/g, ''));
-  const valid = value > 0 && name.trim().length > 0 && !!date;
-
-  const submit = async () => {
-    if (!valid) return;
-    setBusy(true);
-    try {
-      await api('/api/transactions', {
-        method: 'POST',
-        body: {
-          amount: kind === 'expense' ? value : -value,
-          name: name.trim(),
-          date,
-          category: kind === 'income' ? 'income' : cat,
-          subcategory: sub || undefined,
-        },
-      });
-      await reload();
-      onClose();
-    } catch (e) {
-      showToast((e as Error).message);
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Sheet title="Add cash transaction" onClose={onClose}>
-      <Segmented
-        ariaLabel="Type"
-        value={kind}
-        onChange={(k) => {
-          setKind(k);
-          setSub('');
-        }}
-        options={[
-          { value: 'expense', label: 'Expense' },
-          { value: 'income', label: 'Income' },
-        ]}
-      />
-      <label className="field">
-        <span className="field-label">Amount</span>
-        <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </label>
-      <label className="field">
-        <span className="field-label">Description</span>
-        <input maxLength={120} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Farmers market" />
-      </label>
-      <label className="field">
-        <span className="field-label">Date</span>
-        <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
-      </label>
-      {kind === 'expense' && (
-        <>
-          <h3 className="field-label">Category</h3>
-          <CategoryPicker
-            value={cat}
-            onChange={(c) => {
-              setCat(c);
-              setSub('');
-            }}
-          />
-        </>
-      )}
-      <h3 className="field-label">Subcategory</h3>
-      <SubcategoryPicker categoryId={kind === 'income' ? 'income' : cat} value={sub} onChange={setSub} />
-      <div className="sheet-actions">
-        <button className="btn primary" onClick={submit} disabled={!valid || busy}>
-          Add
         </button>
       </div>
     </Sheet>
