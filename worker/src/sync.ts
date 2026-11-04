@@ -117,10 +117,11 @@ async function upsertTransactions(env: Env, itemId: string, txns: PlaidTransacti
       env.DB.prepare(
         `UPDATE transactions AS t SET
            user_category = (SELECT p.user_category FROM transactions p WHERE p.id = t.pending_transaction_id),
+           user_subcategory = (SELECT p.user_subcategory FROM transactions p WHERE p.id = t.pending_transaction_id),
            note = (SELECT p.note FROM transactions p WHERE p.id = t.pending_transaction_id)
          WHERE t.id IN (SELECT json_extract(value, '$.id') FROM json_each(?1))
            AND t.pending_transaction_id IS NOT NULL
-           AND t.user_category IS NULL AND t.note IS NULL`,
+           AND t.user_category IS NULL AND t.user_subcategory IS NULL AND t.note IS NULL`,
       ).bind(payload),
     ]);
   }

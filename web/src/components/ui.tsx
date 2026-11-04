@@ -1,8 +1,20 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Check, CreditCard, Landmark, X } from 'lucide-react';
+import {
+  CalendarDays,
+  CalendarRange,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  Infinity as InfinityIcon,
+  Landmark,
+  ListFilter,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { category } from '../categories';
 import { useData } from '../data';
-import { isCurrent, label, shift, today, type PeriodKind } from '../period';
+import { EMPTY_FILTERS, filterSummary, isFiltered } from '../filters';
+import { addDays, isCurrent, label, shift, today, type PeriodKind } from '../period';
 import type { Account } from '../types';
 
 // ---------- Segmented control ----------
@@ -37,7 +49,19 @@ export function Segmented<T extends string>({
 
 // ---------- Bottom sheet ----------
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({
+  title,
+  onClose,
+  children,
+  full = false,
+  headerAction,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  full?: boolean;
+  headerAction?: ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
@@ -57,7 +81,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     <div className="sheet-backdrop" onClick={onClose}>
       <div
         ref={ref}
-        className="sheet"
+        className={'sheet' + (full ? ' full' : '')}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -66,10 +90,18 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       >
         <div className="sheet-handle" aria-hidden="true" />
         <div className="sheet-header">
+          {full && (
+            <button className="icon-btn sheet-close" onClick={onClose} aria-label="Close">
+              <X size={24} />
+            </button>
+          )}
           <h2>{title}</h2>
-          <button className="icon-btn sheet-close" onClick={onClose} aria-label="Close">
-            <X size={22} />
-          </button>
+          {headerAction}
+          {!full && (
+            <button className="icon-btn sheet-close" onClick={onClose} aria-label="Close">
+              <X size={22} />
+            </button>
+          )}
         </div>
         <div className="sheet-body">{children}</div>
       </div>
@@ -79,12 +111,81 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
 
 // ---------- Period selector ----------
 
-const KINDS: { value: PeriodKind; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' },
-  { value: 'all', label: 'All time' },
+const QUICK_KINDS: { value: PeriodKind; title: string }[] = [
+  { value: 'day', title: 'Today' },
+  { value: 'week', title: 'This week' },
+  { value: 'month', title: 'This month' },
+  { value: 'year', title: 'This year' },
 ];
+
+function PeriodSheet({ onClose }: { onClose: () => void }) {
+  const { period, setPeriod } = useData();
+  const t = today();
+  const [custom, setCustom] = useState(period.kind === 'custom');
+  const [from, setFrom] = useState(period.kind === 'custom' ? period.anchor : addDays(t, -29));
+  const [to, setTo] = useState(period.kind === 'custom' ? (period.end ?? t) : t);
+  const pick = (kind: PeriodKind) => {
+    setPeriod({ kind, anchor: t });
+    onClose();
+  };
+  const validCustom = !!from && !!to && from <= to;
+
+  return (
+    <Sheet title="Show" onClose={onClose}>
+      <div className="option-list">
+        {QUICK_KINDS.map((k) => {
+          const selected = period.kind === k.value && isCurrent(period);
+          return (
+            <button key={k.value} className="option" onClick={() => pick(k.value)} aria-pressed={selected}>
+              <span className="option-text">
+                <span>{k.title}</span>
+                <span className="muted">{label({ kind: k.value, anchor: t }).replace(/^Today$/, label({ kind: 'custom', anchor: t }))}</span>
+              </span>
+              {selected && <Check size={22} className="check-badge" />}
+            </button>
+          );
+        })}
+        <hr className="divider" />
+        <button className="option" onClick={() => pick('all')} aria-pressed={period.kind === 'all'}>
+          <span className="option-icon">
+            <InfinityIcon size={24} aria-hidden="true" />
+            All time
+          </span>
+          {period.kind === 'all' && <Check size={22} className="check-badge" />}
+        </button>
+        <button className="option" onClick={() => setCustom(true)} aria-expanded={custom}>
+          <span className="option-icon">
+            <CalendarRange size={24} aria-hidden="true" />
+            Custom
+          </span>
+          {period.kind === 'custom' && <Check size={22} className="check-badge" />}
+        </button>
+        {custom && (
+          <div className="custom-range">
+            <label className="field">
+              <span className="field-label">From</span>
+              <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <label className="field">
+              <span className="field-label">To</span>
+              <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+            </label>
+            <button
+              className="btn primary block"
+              disabled={!validCustom}
+              onClick={() => {
+                setPeriod({ kind: 'custom', anchor: from, end: to });
+                onClose();
+              }}
+            >
+              Apply range
+            </button>
+          </div>
+        )}
+      </div>
+    </Sheet>
+  );
+}
 
 export function PeriodBar({ right }: { right?: ReactNode }) {
   const { period, setPeriod } = useData();
@@ -110,25 +211,32 @@ export function PeriodBar({ right }: { right?: ReactNode }) {
         </button>
         {right}
       </div>
-      {open && (
-        <Sheet title="Show" onClose={() => setOpen(false)}>
-          <div className="option-list">
-            {KINDS.map((k) => (
-              <button
-                key={k.value}
-                className="option"
-                onClick={() => {
-                  setPeriod({ kind: k.value, anchor: today() });
-                  setOpen(false);
-                }}
-              >
-                <span>{k.label}</span>
-                {period.kind === k.value && <Check size={20} />}
-              </button>
-            ))}
-          </div>
-        </Sheet>
-      )}
+      {open && <PeriodSheet onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+// ---------- Filters entry point ----------
+
+export function FilterButton({ onClick }: { onClick: () => void }) {
+  const { filters } = useData();
+  const active = isFiltered(filters);
+  return (
+    <button className="icon-btn filter-btn" onClick={onClick} aria-label={active ? `Filters: ${filterSummary(filters)}` : 'Filters'}>
+      <ListFilter size={22} />
+      {active && <span className="badge-dot" aria-hidden="true" />}
+    </button>
+  );
+}
+
+export function ActiveFilters() {
+  const { filters, setFilters } = useData();
+  if (!isFiltered(filters)) return null;
+  return (
+    <div className="chips">
+      <button className="chip active" onClick={() => setFilters(EMPTY_FILTERS)} aria-label={`Clear filters: ${filterSummary(filters)}`}>
+        {filterSummary(filters)} <X size={16} aria-hidden="true" />
+      </button>
     </div>
   );
 }

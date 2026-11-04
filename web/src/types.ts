@@ -37,7 +37,8 @@ export interface Txn {
   category: CategoryId;
   auto_category: CategoryId;
   overridden: number;
-  subcategory: string | null;
+  subcategory: string | null; // effective (user override or Plaid)
+  auto_subcategory: string | null; // Plaid's
   note: string | null;
   source: 'plaid' | 'manual';
 }

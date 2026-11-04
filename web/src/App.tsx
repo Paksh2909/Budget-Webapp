@@ -28,7 +28,7 @@ function Shell() {
       page = <Analytics />;
       break;
     case '/transactions':
-      page = <Transactions categoryFilter={route.params.get('category')} />;
+      page = <Transactions />;
       break;
     case '/accounts':
       page = <Accounts />;

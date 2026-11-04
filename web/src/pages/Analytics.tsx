@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { averages, cashflow, flowSeries } from '../calc';
 import { LineChart, type Series } from '../components/LineChart';
-import { PageHeader, PeriodBar, Segmented } from '../components/ui';
+import { FiltersSheet } from "../components/FiltersSheet";
+import { ActiveFilters, FilterButton, PageHeader, PeriodBar, Segmented } from "../components/ui";
+import { applyFilters } from "../filters";
 import { useData } from '../data';
 import { money, monthShort } from '../format';
-import { label, range, toDate } from '../period';
+import { daysBetween, label, range, toDate } from "../period";
 import { CashflowRows } from './Home';
 
 type View = 'income' | 'expense' | 'both' | 'total';
@@ -12,10 +14,16 @@ const GREEN = '#5fd07a';
 const RED = '#e8735a';
 
 export function Analytics() {
-  const { txns, period } = useData();
-  const [view, setView] = useState<View>('both');
+  const { txns: allTxns, period, filters } = useData();
+  const [view, setView] = useState<View>("both");
+  const [showFilters, setShowFilters] = useState(false);
+  const txns = useMemo(() => applyFilters(allTxns, filters), [allTxns, filters]);
   const r = range(period);
-  const granularity = period.kind === 'week' || period.kind === 'month' ? 'day' : 'month';
+  const granularity =
+    period.kind === "day" || period.kind === "week" || period.kind === "month" ||
+    (period.kind === "custom" && daysBetween(r.start!, r.end!) <= 92)
+      ? "day"
+      : "month";
   const flows = useMemo(() => flowSeries(txns, r, granularity), [txns, r.start, r.end, granularity]);
   const cf = useMemo(() => cashflow(txns, r), [txns, r.start, r.end]);
   const avg = useMemo(() => averages(txns, r), [txns, r.start, r.end]);
@@ -24,7 +32,7 @@ export function Analytics() {
     const d = toDate(k.length === 7 ? k + '-01' : k);
     return granularity === 'day'
       ? `${monthShort(d.getUTCMonth())} ${d.getUTCDate()}`
-      : `${monthShort(d.getUTCMonth())} ${d.getUTCFullYear()}`;
+      : `${monthShort(d.getUTCMonth())} '${String(d.getUTCFullYear()).slice(2)}`;
   });
 
   const series: Series[] =
@@ -38,7 +46,8 @@ export function Analytics() {
   return (
     <div className="page">
       <PageHeader title="Analytics" />
-      <PeriodBar />
+      <PeriodBar right={<FilterButton onClick={() => setShowFilters(true)} />} />
+      <ActiveFilters />
       <Segmented<View>
         ariaLabel="Chart data"
         value={view}
@@ -79,6 +88,7 @@ export function Analytics() {
           </tbody>
         </table>
       </section>
+      {showFilters && <FiltersSheet onClose={() => setShowFilters(false)} />}
     </div>
   );
 }

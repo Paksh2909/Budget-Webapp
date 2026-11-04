@@ -1,8 +1,9 @@
 import { Clock } from 'lucide-react';
-import { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { accountName, MANUAL_ACCOUNT_ID } from '../calc';
-import { CATEGORIES, category, type CategoryId } from '../categories';
+import { CATEGORIES, category, DEFAULT_SUBCATEGORIES, type CategoryId } from '../categories';
 import { useData } from '../data';
 import { money, timeOf } from '../format';
 import { today } from '../period';
@@ -60,10 +61,69 @@ function CategoryPicker({ value, onChange }: { value: CategoryId; onChange: (c: 
   );
 }
 
+/** Suggested + previously used subcategories for a category. value "" means none. */
+function SubcategoryPicker({ categoryId, value, onChange }: { categoryId: CategoryId; value: string; onChange: (v: string) => void }) {
+  const { data } = useData();
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const options = useMemo(() => {
+    const set = new Set(DEFAULT_SUBCATEGORIES[categoryId]);
+    for (const t of data?.transactions ?? []) if (t.category === categoryId && t.subcategory) set.add(t.subcategory);
+    if (value) set.add(value);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [data, categoryId, value]);
+
+  const commit = () => {
+    const v = draft.trim().slice(0, 60);
+    if (v) onChange(v);
+    setDraft('');
+    setAdding(false);
+  };
+
+  return (
+    <div className="chip-wrap" role="radiogroup" aria-label="Subcategory">
+      <button role="radio" aria-checked={value === ''} className={'chip' + (value === '' ? ' active' : '')} onClick={() => onChange('')}>
+        None
+      </button>
+      {options.map((o) => (
+        <button key={o} role="radio" aria-checked={value === o} className={'chip' + (value === o ? ' active' : '')} onClick={() => onChange(o)}>
+          {o}
+        </button>
+      ))}
+      {adding ? (
+        <input
+          className="chip-input"
+          autoFocus
+          maxLength={60}
+          value={draft}
+          placeholder="New subcategory"
+          aria-label="New subcategory name"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') { e.stopPropagation(); setAdding(false); }
+          }}
+        />
+      ) : (
+        <button className="chip" onClick={() => setAdding(true)} aria-label="Add subcategory">
+          <Plus size={16} aria-hidden="true" /> New
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onClose: () => void }) {
   const { reload, showToast } = useData();
   const [cat, setCat] = useState<CategoryId>(t.category);
+  const [sub, setSub] = useState(t.subcategory ?? '');
   const [note, setNote] = useState(t.note ?? '');
+  const changeCategory = (c: CategoryId) => {
+    setCat(c);
+    // Keep the subcategory only if it belongs with the new category.
+    if (c !== cat) setSub(c === t.auto_category ? (t.auto_subcategory ?? '') : '');
+  };
   const [busy, setBusy] = useState(false);
 
   const save = async (body: Record<string, unknown>) => {
@@ -110,7 +170,9 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
         </dl>
       </div>
       <h3 className="field-label">Category</h3>
-      <CategoryPicker value={cat} onChange={setCat} />
+      <CategoryPicker value={cat} onChange={changeCategory} />
+      <h3 className="field-label">Subcategory</h3>
+      <SubcategoryPicker categoryId={cat} value={sub} onChange={setSub} />
       <label className="field">
         <span className="field-label">Note</span>
         <input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="Add a note" />
@@ -121,14 +183,22 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
             Delete
           </button>
         ) : t.overridden ? (
-          <button className="btn ghost" onClick={() => save({ category: null })} disabled={busy}>
+          <button className="btn ghost" onClick={() => save({ category: null, subcategory: null })} disabled={busy}>
             Reset category
           </button>
         ) : null}
         <button
           className="btn primary"
           disabled={busy}
-          onClick={() => save({ category: cat === t.auto_category && !t.overridden ? null : cat, note: note.trim() || null })}
+          onClick={() => {
+            const autoCat = cat === t.auto_category;
+            save({
+              category: autoCat ? null : cat,
+              // null = follow Plaid; "" = explicitly none
+              subcategory: autoCat && sub === (t.auto_subcategory ?? '') ? null : sub,
+              note: note.trim() || null,
+            });
+          }}
         >
           Save
         </button>
@@ -144,6 +214,7 @@ export function AddTxnSheet({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [date, setDate] = useState(today());
   const [cat, setCat] = useState<CategoryId>('food');
+  const [sub, setSub] = useState('');
   const [busy, setBusy] = useState(false);
 
   const value = Number(amount.replace(/[^0-9.]/g, ''));
@@ -160,6 +231,7 @@ export function AddTxnSheet({ onClose }: { onClose: () => void }) {
           name: name.trim(),
           date,
           category: kind === 'income' ? 'income' : cat,
+          subcategory: sub || undefined,
         },
       });
       await reload();
@@ -175,7 +247,10 @@ export function AddTxnSheet({ onClose }: { onClose: () => void }) {
       <Segmented
         ariaLabel="Type"
         value={kind}
-        onChange={setKind}
+        onChange={(k) => {
+          setKind(k);
+          setSub('');
+        }}
         options={[
           { value: 'expense', label: 'Expense' },
           { value: 'income', label: 'Income' },
@@ -196,9 +271,17 @@ export function AddTxnSheet({ onClose }: { onClose: () => void }) {
       {kind === 'expense' && (
         <>
           <h3 className="field-label">Category</h3>
-          <CategoryPicker value={cat} onChange={setCat} />
+          <CategoryPicker
+            value={cat}
+            onChange={(c) => {
+              setCat(c);
+              setSub('');
+            }}
+          />
         </>
       )}
+      <h3 className="field-label">Subcategory</h3>
+      <SubcategoryPicker categoryId={kind === 'income' ? 'income' : cat} value={sub} onChange={setSub} />
       <div className="sheet-actions">
         <button className="btn primary" onClick={submit} disabled={!valid || busy}>
           Add

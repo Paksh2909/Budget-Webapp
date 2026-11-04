@@ -52,7 +52,7 @@ export function Home() {
 
   const xLabels =
     period.kind === 'year' || period.kind === 'all'
-      ? series.dates.map((d) => `${monthShort(toDate(d).getUTCMonth())} ${toDate(d).getUTCFullYear()}`)
+      ? series.dates.map((d) => `${monthShort(toDate(d).getUTCMonth())} '${String(toDate(d).getUTCFullYear()).slice(2)}`)
       : series.dates.map(shortDate);
   const change = series.current - series.baseline;
 

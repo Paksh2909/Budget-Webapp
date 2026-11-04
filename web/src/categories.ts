@@ -60,5 +60,22 @@ export function category(id: string): CategoryMeta {
   return BY_ID[id as CategoryId] ?? BY_ID.other;
 }
 
+/** Suggested subcategories; merged with whatever subcategories appear in your data. */
+export const DEFAULT_SUBCATEGORIES: Record<CategoryId, string[]> = {
+  food: ['Restaurant', 'Coffee', 'Groceries', 'Fast Food', 'Snacks', 'Alcohol and Bars'],
+  shopping: ['Clothing and Accessories', 'Electronics', 'Online Marketplaces', 'Gifts', 'Home Goods'],
+  housing: ['Rent', 'Mortgage', 'Maintenance', 'Furniture', 'Home Insurance'],
+  transport: ['Public Transit', 'Taxis and Ride Shares', 'Long Distance'],
+  vehicle: ['Gas', 'Parking', 'Maintenance', 'Insurance', 'Car Payment'],
+  lifestyle: ['Entertainment', 'Sports', 'Hobbies', 'Personal Care', 'Music and Audio'],
+  health: ['Pharmacy', 'Doctor', 'Dental', 'Fitness'],
+  travel: ['Flights', 'Lodging', 'Rental Cars', 'Trips and Holidays'],
+  bills: ['Mobile', 'Internet', 'Subscriptions', 'Utilities', 'Insurance', 'Taxes'],
+  investment: ['Brokerage', 'Retirement', 'Crypto'],
+  income: ['Salary', 'Refunds', 'Interest', 'Dividends', 'Other'],
+  transfer: ['Credit Card Payment', 'Between Accounts'],
+  other: [],
+};
+
 /** Categories a budget can track (spending only). */
 export const EXPENSE_CATEGORIES = CATEGORIES.filter((c) => c.id !== 'income' && c.id !== 'transfer');

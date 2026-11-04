@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from './api';
 import { visibleTxns } from './calc';
+import { EMPTY_FILTERS, type Filters } from './filters';
 import { today, type Period } from './period';
 import type { AppData, Txn } from './types';
 
@@ -22,6 +23,8 @@ interface DataCtx {
   syncItem: (itemId: string) => Promise<void>;
   period: Period;
   setPeriod: (p: Period) => void;
+  filters: Filters;
+  setFilters: (f: Filters) => void;
   toast: string | null;
   showToast: (msg: string) => void;
 }
@@ -33,7 +36,7 @@ const AUTO_SYNC_MS = 6 * 60 * 60 * 1000;
 function loadPeriod(): Period {
   try {
     const p = JSON.parse(localStorage.getItem(PERIOD_KEY) ?? '') as Period;
-    if (p && ['week', 'month', 'year', 'all'].includes(p.kind)) return { kind: p.kind, anchor: today() };
+    if (p && ["day", "week", "month", "year", "all"].includes(p.kind)) return { kind: p.kind, anchor: today() };
   } catch {
     /* ignore */
   }
@@ -46,6 +49,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [period, setPeriodState] = useState<Period>(loadPeriod);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number>(undefined);
   const autoSynced = useRef(false);
@@ -117,7 +121,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const setPeriod = useCallback((p: Period) => {
     setPeriodState(p);
-    localStorage.setItem(PERIOD_KEY, JSON.stringify({ kind: p.kind }));
+    // Remember the kind of range (not custom dates) for next launch.
+    if (p.kind !== 'custom') localStorage.setItem(PERIOD_KEY, JSON.stringify({ kind: p.kind }));
   }, []);
 
   useEffect(() => {
@@ -135,8 +140,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const txns = useMemo(() => (data ? visibleTxns(data.transactions, data.accounts) : []), [data]);
 
   const value = useMemo(
-    () => ({ data, txns, loading, error, syncing, reload, syncAll, syncItem, period, setPeriod, toast, showToast }),
-    [data, txns, loading, error, syncing, reload, syncAll, syncItem, period, setPeriod, toast, showToast],
+    () => ({ data, txns, loading, error, syncing, reload, syncAll, syncItem, period, setPeriod, filters, setFilters, toast, showToast }),
+    [data, txns, loading, error, syncing, reload, syncAll, syncItem, period, setPeriod, filters, toast, showToast],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

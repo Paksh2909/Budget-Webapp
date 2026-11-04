@@ -160,7 +160,9 @@ route('GET', '/api/data', async (_req, env) => {
     env.DB.prepare(
       `SELECT id, account_id, amount, date, datetime, name, merchant_name, logo_url, pending,
               COALESCE(user_category, category) AS category, category AS auto_category,
-              user_category IS NOT NULL AS overridden, subcategory, note, source
+              (user_category IS NOT NULL OR user_subcategory IS NOT NULL) AS overridden,
+              NULLIF(COALESCE(user_subcategory, subcategory), '') AS subcategory,
+              subcategory AS auto_subcategory, note, source
        FROM transactions ORDER BY date DESC, datetime DESC, id`,
     ),
     env.DB.prepare(`SELECT id, name, amount, categories FROM budgets ORDER BY sort, created_at`),
@@ -183,8 +185,8 @@ route('POST', '/api/transactions', async (req, env) => {
   const id = `manual_${crypto.randomUUID()}`;
   const now = nowIso();
   await env.DB.prepare(
-    `INSERT INTO transactions (id, account_id, item_id, amount, date, datetime, name, pending, category, note, source, updated_at)
-     VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'manual', ?9)`,
+    `INSERT INTO transactions (id, account_id, item_id, amount, date, datetime, name, pending, category, note, source, updated_at, subcategory)
+     VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, 0, ?7, ?8, 'manual', ?9, ?10)`,
   )
     .bind(
       id,
@@ -196,6 +198,7 @@ route('POST', '/api/transactions', async (req, env) => {
       body.category,
       str(body.note, 'note', { optional: true, max: 300 }) ?? null,
       now,
+      str(body.subcategory, 'subcategory', { optional: true, max: 60 }) ?? null,
     )
     .run();
   return json({ id }, 201);
@@ -213,6 +216,15 @@ route('PATCH', '/api/transactions/:id', async (req, env, { id }) => {
   if ('note' in body) {
     sets.push('note = ?');
     binds.push(str(body.note, 'note', { optional: true, max: 300 }) ?? null);
+  }
+  if ('subcategory' in body) {
+    // null = follow Plaid's subcategory; '' = explicitly none; otherwise a label.
+    const v = body.subcategory;
+    if (v !== null && typeof v !== 'string') throw new HttpError(400, 'subcategory must be a string or null');
+    const t = typeof v === 'string' ? v.trim() : null;
+    if (t && t.length > 60) throw new HttpError(400, 'subcategory is too long');
+    sets.push('user_subcategory = ?');
+    binds.push(t);
   }
   if (!sets.length) throw new HttpError(400, 'Nothing to update');
   sets.push('updated_at = ?');
