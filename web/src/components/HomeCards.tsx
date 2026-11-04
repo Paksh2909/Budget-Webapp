@@ -10,13 +10,12 @@ import { monthLong } from '../format';
 import { today, toDate } from '../period';
 import { navigate } from '../router';
 
-export function ForecastCard({ forecast, budgetTotal }: { forecast: Forecast; budgetTotal: number | null }) {
+export function ForecastCard({ forecast }: { forecast: Forecast }) {
   const f = forecast;
   const month = monthLong(toDate(today()).getUTCMonth());
-  const scale = Math.max(f.projected, budgetTotal ?? 0, f.lastMonth, 1);
+  const scale = Math.max(f.projected, f.lastMonth, 1);
   const pct = (n: number) => `${Math.min(100, (n / scale) * 100)}%`;
   const vsLast = f.lastMonth > 0 ? f.projected - f.lastMonth : null;
-  const over = budgetTotal !== null ? f.projected - budgetTotal : null;
   const [open, setOpen] = useState(false);
 
   return (
@@ -39,10 +38,10 @@ export function ForecastCard({ forecast, budgetTotal }: { forecast: Forecast; bu
         </div>
       </div>
 
-      <div className="forecast-bar" role="img" aria-label={`Spent ${money(f.spent)} of a projected ${money(f.projected)}${budgetTotal ? `, budget ${money(budgetTotal)}` : ''}`}>
+      <div className="forecast-bar" role="img" aria-label={`Spent ${money(f.spent)} of a projected ${money(f.projected)}${f.lastMonth > 0 ? `; last month ${money(f.lastMonth)}` : ''}`}>
         <span className="fb-projected" style={{ width: pct(f.projected) }} />
         <span className="fb-spent" style={{ width: pct(f.spent) }} />
-        {budgetTotal !== null && <span className="fb-budget" style={{ left: pct(budgetTotal) }} />}
+        {f.lastMonth > 0 && <span className="fb-mark" style={{ left: pct(f.lastMonth) }} title="Last month" />}
       </div>
 
       <div className="forecast-legend">
@@ -57,22 +56,16 @@ export function ForecastCard({ forecast, budgetTotal }: { forecast: Forecast; bu
         </span>
       </div>
 
-      {(over !== null || vsLast !== null) && (
-        <p className={'forecast-note ' + (over !== null && over > 0 ? 'neg' : 'muted')}>
-          {over !== null
-            ? over > 0
-              ? `About ${money(over)} over your ${money(budgetTotal!)} budget at this pace.`
-              : `About ${money(-over)} under your ${money(budgetTotal!)} budget.`
-            : ''}
-          {over !== null && vsLast !== null ? ' ' : ''}
-          {vsLast !== null && `${vsLast >= 0 ? '+' : '−'}${money(Math.abs(vsLast))} vs. last month.`}
+      {vsLast !== null && (
+        <p className="forecast-note muted">
+          {`${vsLast >= 0 ? '+' : '−'}${money(Math.abs(vsLast))} vs. last month (${money(f.lastMonth)}, the white tick).`}
         </p>
       )}
       <span className="card-more muted small" aria-hidden="true">
         Details <ChevronRight size={14} />
       </span>
     </section>
-    {open && <ForecastSheet f={f} budget={budgetTotal} onClose={() => setOpen(false)} />}
+    {open && <ForecastSheet f={f} onClose={() => setOpen(false)} />}
     </>
   );
 }

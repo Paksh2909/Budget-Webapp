@@ -18,7 +18,7 @@ Budget is a single-user personal finance app. The phone app is a static site; ev
 - **Secrets never reach the browser.** The Plaid client ID/secret, the session signing key, and the token encryption key exist only as Worker secrets. The repo is public and contains none of them.
 - **Private by default.** Every API route except `/api/health` and `/api/login` requires a valid session. Only the GitHub Pages origin is allowed by CORS, and state-changing requests from any other origin are rejected.
 - **Bank credentials never touch this app.** You sign in to banks inside Plaid Link (Plaid's own window). The app only ever receives a one-time `public_token`, which the Worker exchanges for an access token.
-- **Analytics run on the phone.** Budgets, charts, forecasts, insights, recurring-charge detection and auto-categorize rules are computed in the browser from data the app already loaded. No transaction data is sent to any third-party service.
+- **Analytics run on the phone.** Charts, forecasts, insights, recurring-charge detection and auto-categorize rules are computed in the browser from data the app already loaded. No transaction data is sent to any third-party service.
 - **Stay inside the free tier.** Sync work is chunked so each Worker run stays under the free plan's subrequest and CPU limits.
 
 ## Request flows
@@ -134,12 +134,6 @@ erDiagram
         text note
         int pending
     }
-    budgets {
-        text id PK
-        text name
-        real amount "monthly limit"
-        text categories "JSON list; empty = all"
-    }
     rules {
         text id PK
         text pattern "description contains"
@@ -180,7 +174,7 @@ All in `web/src/`:
 
 | Feature | File | Approach |
 | --- | --- | --- |
-| Cash flow, categories, budgets | `calc.ts` | Sums over the selected period; transfers and card payments excluded |
+| Cash flow, categories | `calc.ts` | Sums over the selected period; transfers and card payments excluded |
 | Balance history | `calc.ts` | Walks back from today's balances through posted transactions |
 | Recurring charges | `recurring.ts` | Groups by merchant; schedule and amount come from the **last 3 charges**, so changes (e.g. $250 weekly → $400 every 2 weeks) are picked up within a couple of cycles and noted. Needs a regular schedule over the last 5 gaps (or a clean switch between two schedules) and exact-repeat amounts, so frequent-but-random purchases aren’t mistaken for subscriptions |
 | Tracked bills | `recurring.ts` | Bills you mark by hand (e.g. rent via Bilt, 1st–5th): matched by description + account, amount = average of the last 3 payments, due at the start of the next unpaid window |
@@ -205,9 +199,9 @@ All in `web/src/`:
 
 ```
 web/                    React PWA (GitHub Pages)
-  src/pages/            Home, Categories, Analytics, Transactions, Accounts, Budgets, Recurring, Rules
+  src/pages/            Home, Categories, Analytics, Transactions, Accounts, Recurring, Rules
   src/components/       Charts, sheets, filters, Plaid Link
-  src/calc.ts           Totals, balances, budgets
+  src/calc.ts           Totals, balances
   src/insights.ts       Recurring detection, forecast, unusual-spending insights
   src/rules.ts          Auto-categorize rules
 worker/                 Cloudflare Worker API

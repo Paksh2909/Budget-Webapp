@@ -77,5 +77,5 @@ export const DEFAULT_SUBCATEGORIES: Record<CategoryId, string[]> = {
   other: [],
 };
 
-/** Categories a budget can track (spending only). */
+/** Spending categories (excludes income and transfers). */
 export const EXPENSE_CATEGORIES = CATEGORIES.filter((c) => c.id !== 'income' && c.id !== 'transfer');

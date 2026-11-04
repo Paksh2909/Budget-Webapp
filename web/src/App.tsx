@@ -6,7 +6,6 @@ import { Spinner } from './components/ui';
 import { DataProvider, useData } from './data';
 import { Accounts } from './pages/Accounts';
 import { Analytics } from './pages/Analytics';
-import { Budgets } from './pages/Budgets';
 import { Categories } from './pages/Categories';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
@@ -40,9 +39,6 @@ function Shell() {
       break;
     case '/rules':
       page = <Rules />;
-      break;
-    case '/budgets':
-      page = <Budgets />;
       break;
     default:
       page = <Home />;

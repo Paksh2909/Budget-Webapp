@@ -174,7 +174,7 @@ route('PATCH', '/api/accounts/:id', async (req, env, { id }) => {
 // ---------- All data for the app ----------
 
 route('GET', '/api/data', async (_req, env) => {
-  const [items, accounts, transactions, budgets, rules, statements, bills, settings] = await env.DB.batch([
+  const [items, accounts, transactions, rules, statements, bills, settings] = await env.DB.batch([
     env.DB.prepare(
       `SELECT item_id, institution_name, status, error_code, last_synced_at, liabilities_status
        FROM items ORDER BY created_at`,
@@ -193,7 +193,6 @@ route('GET', '/api/data', async (_req, env) => {
               subcategory AS auto_subcategory, note, source
        FROM transactions ORDER BY date DESC, datetime DESC, id`,
     ),
-    env.DB.prepare(`SELECT id, name, amount, categories FROM budgets ORDER BY sort, created_at`),
     env.DB.prepare(`SELECT id, pattern, category, subcategory FROM rules ORDER BY created_at`),
     env.DB.prepare(
       `SELECT account_id, last_statement_balance, last_statement_issue_date, minimum_payment_amount,
@@ -208,7 +207,6 @@ route('GET', '/api/data', async (_req, env) => {
     items: items!.results,
     accounts: accounts!.results,
     transactions: transactions!.results,
-    budgets: (budgets!.results as { categories: string }[]).map((b) => ({ ...b, categories: JSON.parse(b.categories) })),
     rules: rules!.results,
     statements: statements!.results,
     bills: bills!.results,
@@ -356,42 +354,6 @@ route('PATCH', '/api/transactions/:id', async (req, env, { id }) => {
 route('DELETE', '/api/transactions/:id', async (_req, env, { id }) => {
   const res = await env.DB.prepare(`DELETE FROM transactions WHERE id = ? AND source = 'manual'`).bind(id).run();
   if (!res.meta.changes) throw new HttpError(404, 'Only manual transactions can be deleted');
-  return json({ ok: true });
-});
-
-// ---------- Budgets ----------
-
-function parseBudget(body: Record<string, unknown>) {
-  const name = str(body.name, 'name', { max: 60 })!;
-  const amount = num(body.amount, 'amount', { min: 0.01, max: 1e7 });
-  const categories = body.categories ?? [];
-  if (!Array.isArray(categories) || !categories.every(isCategoryId)) throw new HttpError(400, 'Invalid categories');
-  return { name, amount, categories: JSON.stringify([...new Set(categories)]) };
-}
-
-route('POST', '/api/budgets', async (req, env) => {
-  const b = parseBudget(await readJson(req));
-  const id = crypto.randomUUID();
-  await env.DB.prepare(
-    `INSERT INTO budgets (id, name, amount, categories, sort, created_at)
-     VALUES (?1, ?2, ?3, ?4, (SELECT COALESCE(MAX(sort), 0) + 1 FROM budgets), ?5)`,
-  )
-    .bind(id, b.name, b.amount, b.categories, nowIso())
-    .run();
-  return json({ id }, 201);
-});
-
-route('PUT', '/api/budgets/:id', async (req, env, { id }) => {
-  const b = parseBudget(await readJson(req));
-  const res = await env.DB.prepare(`UPDATE budgets SET name = ?1, amount = ?2, categories = ?3 WHERE id = ?4`)
-    .bind(b.name, b.amount, b.categories, id)
-    .run();
-  if (!res.meta.changes) throw new HttpError(404, 'Budget not found');
-  return json({ ok: true });
-});
-
-route('DELETE', '/api/budgets/:id', async (_req, env, { id }) => {
-  await env.DB.prepare(`DELETE FROM budgets WHERE id = ?`).bind(id).run();
   return json({ ok: true });
 });
 

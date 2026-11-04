@@ -424,59 +424,13 @@ input[type='date'] {
   white-space: nowrap;
 }
 
-.budget-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
 
-.budget-list li {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 14px;
-  align-items: center;
-}
 
-.budget-ring {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
 
-.ring-pct {
-  font-size: 11px;
-  color: var(--muted);
-}
 
-.budget-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-  font-size: 16px;
-}
 
-.ring {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  flex-shrink: 0;
-}
 
-.ring svg {
-  position: absolute;
-  inset: 0;
-}
 
-.ring-center {
-  position: relative;
-  display: grid;
-  place-items: center;
-}
 
 /* ---------- charts ---------- */
 
@@ -956,27 +910,9 @@ input[type='date'] {
   flex: 1;
 }
 
-/* ---------- budgets ---------- */
 
-.budget-card {
-  flex-direction: row;
-  align-items: center;
-  gap: 16px;
-}
 
-.budget-cats {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
 
-.budget-left {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  font-size: 16px;
-}
 
 /* ---------- analytics ---------- */
 
@@ -1589,7 +1525,7 @@ input[type='date'] {
   background: var(--neg);
 }
 
-.fb-budget {
+.fb-mark {
   width: 2px;
   top: -4px !important;
   bottom: -4px !important;

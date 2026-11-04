@@ -1,17 +1,16 @@
 import { ArrowDownCircle, ArrowUpCircle, ChevronLeft, ChevronRight, RefreshCw, Settings } from 'lucide-react';
 import { useMemo } from 'react';
-import { accountBalance, accountName, balanceSeries, budgetSpent, byCategory, cashflow } from '../calc';
+import { accountBalance, accountName, balanceSeries, byCategory, cashflow } from '../calc';
 import { category } from '../categories';
 import { Donut } from '../components/Donut';
 import { CoverageCard } from '../components/Coverage';
 import { ForecastCard, InsightsCard, RecurringCard } from '../components/HomeCards';
 import { LineChart } from '../components/LineChart';
 import { LinkBankButton } from '../components/PlaidLink';
-import { AccountIcon, CategoryIcon, PageHeader, ProgressRing, Segmented } from '../components/ui';
+import { AccountIcon, CategoryIcon, PageHeader, Segmented } from '../components/ui';
 import { useData } from '../data';
 import { money, monthShort, relativeTime, signedMoney } from '../format';
 import { isCurrent, label, range, shift, today, toDate, type PeriodKind } from '../period';
-import { forecastMonth } from '../insights';
 import { navigate } from '../router';
 import { useInsights } from '../useInsights';
 
@@ -49,14 +48,7 @@ export function Home() {
   const series = useMemo(() => balanceSeries(data?.accounts ?? [], data?.transactions ?? [], r), [data, r.start, r.end]);
   const cf = useMemo(() => cashflow(txns, r), [txns, r.start, r.end]);
   const cats = useMemo(() => byCategory(txns, r), [txns, r.start, r.end]);
-  const month = range({ kind: 'month', anchor: today() });
   const { recurring, forecast, insights, coverage } = useInsights();
-  // A budget covering all spending doubles as the overall monthly target for the forecast.
-  const overall = data?.budgets.find((b) => b.categories.length === 0) ?? null;
-  const budgetForecasts = useMemo(
-    () => new Map((data?.budgets ?? []).map((b) => [b.id, forecastMonth(txns, recurring, { categories: new Set(b.categories) }).projected])),
-    [data, txns, recurring],
-  );
   const lastSync = data?.items.length
     ? data.items.map((i) => i.last_synced_at).sort().reverse()[0] ?? null
     : null;
@@ -122,7 +114,7 @@ export function Home() {
         />
       </section>
 
-      {txns.length > 0 && <ForecastCard forecast={forecast} budgetTotal={overall?.amount ?? null} />}
+      {txns.length > 0 && <ForecastCard forecast={forecast} />}
       {coverage && txns.length > 0 && <CoverageCard coverage={coverage} />}
       <InsightsCard insights={insights} />
 
@@ -184,55 +176,6 @@ export function Home() {
             {!cats.length && <li className="muted">No spending yet</li>}
           </ul>
         </div>
-      </section>
-
-      <section className="card">
-        <button className="card-title-row" onClick={() => navigate('/budgets')}>
-          <h2 className="card-title">Budgets</h2>
-          <ChevronRight size={22} aria-hidden="true" />
-        </button>
-        {data?.budgets.length ? (
-          <ul className="budget-list">
-            {data.budgets.map((b) => {
-              const spent = budgetSpent(b, txns, month);
-              const pct = spent / b.amount;
-              const left = b.amount - spent;
-              const color = pct >= 1 ? 'var(--neg)' : pct >= 0.85 ? '#f59e0b' : 'var(--accent)';
-              const first = b.categories[0];
-              return (
-                <li key={b.id}>
-                  <div className="budget-ring">
-                    <ProgressRing value={pct} color={color}>
-                      <CategoryIcon id={b.categories.length === 1 && first ? first : 'investment'} size={36} />
-                    </ProgressRing>
-                    <span className="ring-pct">{Math.round(pct * 100)}%</span>
-                  </div>
-                  <div className="budget-text">
-                    <span>{b.name}</span>
-                    <span className="muted small">
-                      {money(spent)} of {money(b.amount)}
-                    </span>
-                    {(() => {
-                      const proj = budgetForecasts.get(b.id) ?? spent;
-                      if (proj - spent < 1) return null;
-                      return (
-                        <span className={'small ' + (proj > b.amount ? 'neg' : 'muted')}>On pace for {money(proj)}</span>
-                      );
-                    })()}
-                  </div>
-                  <span className={left >= 0 ? 'pos' : 'neg'}>{signedMoney(left)}</span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="empty">
-            <p>Set a monthly spending limit.</p>
-            <button className="btn primary" onClick={() => navigate('/budgets')}>
-              Create a budget
-            </button>
-          </div>
-        )}
       </section>
 
       {txns.length > 0 && <RecurringCard recurring={recurring} />}

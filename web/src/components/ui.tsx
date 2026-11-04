@@ -272,45 +272,6 @@ export function AccountIcon({ account, size = 40 }: { account: Account; size?: n
   );
 }
 
-// ---------- Progress ring ----------
-
-export function ProgressRing({
-  value,
-  size = 52,
-  stroke = 4,
-  color,
-  children,
-}: {
-  value: number;
-  size?: number;
-  stroke?: number;
-  color: string;
-  children?: ReactNode;
-}) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const pct = Math.min(Math.max(value, 0), 1);
-  return (
-    <span className="ring" style={{ width: size, height: size }}>
-      <svg width={size} height={size} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={stroke} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeDasharray={`${c * pct} ${c}`}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-      <span className="ring-center">{children}</span>
-    </span>
-  );
-}
-
 export function Spinner() {
   return <span className="spinner" role="status" aria-label="Loading" />;
 }

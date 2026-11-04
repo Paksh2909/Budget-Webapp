@@ -55,13 +55,6 @@ export interface Rule {
   subcategory: string | null;
 }
 
-export interface Budget {
-  id: string;
-  name: string;
-  amount: number;
-  categories: CategoryId[];
-}
-
 export interface CardStatement {
   account_id: string;
   last_statement_balance: number | null;
@@ -93,7 +86,6 @@ export interface AppData {
   items: Item[];
   accounts: Account[];
   transactions: Txn[];
-  budgets: Budget[];
   rules: Rule[];
   statements: CardStatement[];
   bills: TrackedBill[];

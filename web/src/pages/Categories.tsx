@@ -1,4 +1,4 @@
-import { ChevronDown, Pencil, Wand2 } from 'lucide-react';
+import { ChevronDown, Wand2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { byCategory, cashflow, isIncome, isTransfer } from '../calc';
 import { category, type CategoryId } from '../categories';
@@ -56,9 +56,6 @@ export function Categories() {
           <>
             <button className="icon-btn" onClick={() => navigate('/rules')} aria-label="Auto-categorize rules">
               <Wand2 size={22} />
-            </button>
-            <button className="icon-btn" onClick={() => navigate('/budgets')} aria-label="Edit budgets">
-              <Pencil size={22} />
             </button>
           </>
         }

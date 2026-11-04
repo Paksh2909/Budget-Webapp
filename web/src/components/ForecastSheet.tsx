@@ -1,7 +1,7 @@
 import { money, monthLong, monthShort } from '../format';
 import type { Forecast } from '../insights';
 import { addDays, today, toDate } from '../period';
-import { LineChart, type RefLine } from './LineChart';
+import { LineChart } from './LineChart';
 import { Sheet } from './ui';
 
 const shortDate = (d: string) => `${monthShort(toDate(d).getUTCMonth())} ${toDate(d).getUTCDate()}`;
@@ -19,7 +19,7 @@ function Row({ label, value, sub, strong, indent }: { label: string; value?: str
   );
 }
 
-export function ForecastSheet({ f, budget, onClose }: { f: Forecast; budget: number | null; onClose: () => void }) {
+export function ForecastSheet({ f, onClose }: { f: Forecast; onClose: () => void }) {
   const t = today();
   const d = toDate(t);
   const month = monthLong(d.getUTCMonth());
@@ -35,7 +35,6 @@ export function ForecastSheet({ f, budget, onClose }: { f: Forecast; budget: num
     f.lastMonthByDay.length ? (f.lastMonthByDay[Math.min(i, f.lastMonthByDay.length - 1)] ?? null) : null,
   );
   const xLabels = Array.from({ length: n }, (_, i) => `${monthShort(d.getUTCMonth())} ${i + 1}`);
-  const refLines: RefLine[] = budget !== null ? [{ value: budget, color: '#e6e6ea', label: `Budget ${money(budget)}` }] : [];
 
   const lateDue = f.upcoming.filter((u) => u.date < t);
   const paceTotal = f.dailyRate * f.daysLeft;
@@ -45,11 +44,6 @@ export function ForecastSheet({ f, budget, onClose }: { f: Forecast; budget: num
       <div className="forecast-hero">
         <span className="muted small">On pace for</span>
         <span className="big-number neg">{money(f.projected)}</span>
-        {budget !== null && (
-          <span className={'small ' + (f.projected > budget ? 'neg' : 'pos')}>
-            {f.projected > budget ? `${money(f.projected - budget)} over` : `${money(budget - f.projected)} under`} your {money(budget)} budget
-          </span>
-        )}
       </div>
 
       <LineChart
@@ -61,7 +55,6 @@ export function ForecastSheet({ f, budget, onClose }: { f: Forecast; budget: num
         xLabels={xLabels}
         height={220}
         zeroBased
-        refLines={refLines}
         markerIndex={f.elapsed - 1}
         ariaLabel={`Cumulative spending this month: ${money(f.spent)} so far, projected ${money(f.projected)} by month end`}
       />

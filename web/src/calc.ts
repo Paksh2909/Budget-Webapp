@@ -1,6 +1,6 @@
 import type { CategoryId } from './categories';
 import { addDays, daysBetween, fmt, inRange, today, toDate, type Range } from './period';
-import type { Account, Budget, Txn } from './types';
+import type { Account, Txn } from './types';
 
 export const MANUAL_ACCOUNT_ID = 'cash';
 
@@ -154,15 +154,4 @@ export function averages(txns: Txn[], r: Range) {
     week: { income: perDay(cf.income) * 7, expense: perDay(cf.expense) * 7 },
     month: { income: perDay(cf.income) * 30.437, expense: perDay(cf.expense) * 30.437 },
   };
-}
-
-export function budgetSpent(b: Budget, txns: Txn[], r: Range): number {
-  const cats = new Set(b.categories);
-  let spent = 0;
-  for (const t of txns) {
-    if (!inRange(t.date, r) || isTransfer(t) || isIncome(t)) continue;
-    if (cats.size && !cats.has(t.category)) continue;
-    spent += t.amount;
-  }
-  return Math.max(spent, 0);
 }
