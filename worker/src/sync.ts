@@ -1,5 +1,6 @@
 import { mapCategory } from './categories';
 import { decryptString } from './crypto';
+import { refreshLiabilities } from './liabilities';
 import { nowIso, type Env } from './http';
 import { plaid, PlaidError, type AccountsResponse, type PlaidAccount, type PlaidTransaction, type SyncResponse } from './plaid';
 
@@ -194,6 +195,8 @@ export async function syncItem(env: Env, item: ItemRow): Promise<SyncResult> {
       result.modified = modified.length;
       result.removed = removed.length;
       result.hasMore = hasMore;
+      // Once caught up, refresh card statements (at most every 12h; never fails the sync).
+      if (!hasMore) await refreshLiabilities(env, item.item_id, { accessToken });
       return result;
     }
   } catch (err) {

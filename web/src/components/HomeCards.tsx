@@ -1,4 +1,6 @@
 import { AlertTriangle, ChevronRight, Info, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { ForecastSheet } from './ForecastSheet';
 import { useData } from '../data';
 import { EMPTY_FILTERS } from '../filters';
 import { money } from '../format';
@@ -15,9 +17,12 @@ export function ForecastCard({ forecast, budgetTotal }: { forecast: Forecast; bu
   const pct = (n: number) => `${Math.min(100, (n / scale) * 100)}%`;
   const vsLast = f.lastMonth > 0 ? f.projected - f.lastMonth : null;
   const over = budgetTotal !== null ? f.projected - budgetTotal : null;
+  const [open, setOpen] = useState(false);
 
   return (
+    <>
     <section className="card" aria-labelledby="forecast-title">
+      <button className="card-hit" onClick={() => setOpen(true)} aria-label="Show forecast details" />
       <div className="row-between">
         <div>
           <h2 id="forecast-title" className="card-title">
@@ -45,7 +50,7 @@ export function ForecastCard({ forecast, budgetTotal }: { forecast: Forecast; bu
           <i className="dot spent" /> Spent {money(f.spent)}
         </span>
         <span>
-          <i className="dot bills" /> Bills due {money(f.upcomingRecurring)}
+          <i className="dot bills" /> Recurring {money(f.upcomingRecurring)}
         </span>
         <span>
           <i className="dot pace" /> ~{money(f.dailyRate)}/day
@@ -63,7 +68,12 @@ export function ForecastCard({ forecast, budgetTotal }: { forecast: Forecast; bu
           {vsLast !== null && `${vsLast >= 0 ? '+' : '−'}${money(Math.abs(vsLast))} vs. last month.`}
         </p>
       )}
+      <span className="card-more muted small" aria-hidden="true">
+        Details <ChevronRight size={14} />
+      </span>
     </section>
+    {open && <ForecastSheet f={f} budget={budgetTotal} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 

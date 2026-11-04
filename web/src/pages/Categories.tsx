@@ -20,6 +20,9 @@ export function Categories() {
   const txns = useMemo(() => applyFilters(allTxns, filters), [allTxns, filters]);
   const cats = useMemo(() => byCategory(txns, r, kind), [txns, r.start, r.end, kind]);
   const cf = useMemo(() => cashflow(txns, r), [txns, r.start, r.end]);
+  // The expanded row doubles as the highlighted slice.
+  const selectedIndex = cats.findIndex((c) => c.id === expanded);
+  const selectedCat = selectedIndex >= 0 ? cats[selectedIndex] : null;
 
   // Subcategory totals for the expanded category.
   const subs = useMemo(() => {
@@ -76,16 +79,31 @@ export function Categories() {
       />
 
       <Donut
-        showLabels
-        size={300}
+        size={248}
+        thickness={18}
         segments={cats.map((c) => ({ value: c.total, color: category(c.id).color, label: category(c.id).label }))}
+        selected={selectedIndex >= 0 ? selectedIndex : null}
+        onSelect={(i) => setExpanded(i === null ? null : (cats[i]?.id ?? null))}
         center={
-          <>
-            <span className={'donut-total neg' + (kind === 'expense' ? ' strong' : '')}>{money(cf.expense)}</span>
-            <span className={'donut-total pos' + (kind === 'income' ? ' strong' : '')}>{money(cf.income)}</span>
-          </>
+          selectedCat ? (
+            <span className="donut-sel" aria-live="polite">
+              <span className="donut-sel-name" style={{ color: category(selectedCat.id).color }}>
+                {category(selectedCat.id).label}
+              </span>
+              <span className={'donut-total strong ' + (kind === 'expense' ? 'neg' : 'pos')}>{money(selectedCat.total)}</span>
+              <span className="muted small">{Math.round(selectedCat.share * 100)}% of {kind === 'expense' ? 'spending' : 'income'}</span>
+            </span>
+          ) : (
+            <>
+              <span className={'donut-total neg' + (kind === 'expense' ? ' strong' : '')}>{money(cf.expense)}</span>
+              <span className={'donut-total pos' + (kind === 'income' ? ' strong' : '')}>{money(cf.income)}</span>
+              {cats.length > 0 && <span className="muted tiny-hint">Tap a slice</span>}
+            </>
+          )
         }
-        ariaLabel={`${kind === 'expense' ? 'Spending' : 'Income'} by category`}
+        ariaLabel={`${kind === 'expense' ? 'Spending' : 'Income'} by category. ${cats
+          .map((c) => `${category(c.id).label} ${Math.round(c.share * 100)}%`)
+          .join(', ')}`}
       />
 
       <ul className="cat-list">
@@ -93,7 +111,7 @@ export function Categories() {
           const meta = category(c.id);
           const open = expanded === c.id;
           return (
-            <li key={c.id}>
+            <li key={c.id} id={`cat-${c.id}`} className={expanded && !open ? 'cat-dim' : ''}>
               <div className="cat-row-wrap">
                 <button
                   className="cat-row"

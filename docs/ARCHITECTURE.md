@@ -89,7 +89,8 @@ flowchart TD
     G --> H[Delete removed, save new cursor]
     H --> I{has_more?}
     I -- yes --> C
-    I -- no --> Z
+    I -- no --> L["Card statements via /liabilities/get<br/>(at most every 12h; never fails the sync)"]
+    L --> Z
     E -. ITEM_LOGIN_REQUIRED .-> R[Mark bank 'Reconnect' in the app]
 ```
 
@@ -103,6 +104,7 @@ The cron runs one bank per run because free-plan Workers allow about 50 subreque
 erDiagram
     items ||--o{ accounts : has
     accounts ||--o{ transactions : has
+    accounts ||--o| card_statements : has
     items {
         text item_id PK
         text access_token_enc "AES-GCM"
@@ -144,8 +146,22 @@ erDiagram
         text category
         text subcategory
     }
+    card_statements {
+        text account_id PK "credit card"
+        real last_statement_balance
+        text next_payment_due_date
+        real minimum_payment_amount
+    }
+    bills {
+        text id PK
+        text name "e.g. Rent"
+        text pattern "description contains"
+        text account_id "paid from"
+        int day_start "due window"
+        int day_end
+    }
     settings {
-        text key PK "session_version, sync_attempt:*"
+        text key PK "session_version, sync_attempt:*, bill_pay_account, coverage_cushion"
         text value
     }
 ```
@@ -166,8 +182,10 @@ All in `web/src/`:
 | --- | --- | --- |
 | Cash flow, categories, budgets | `calc.ts` | Sums over the selected period; transfers and card payments excluded |
 | Balance history | `calc.ts` | Walks back from today's balances through posted transactions |
-| Recurring charges | `insights.ts` | Groups by merchant, finds a regular cadence (weekly → yearly) with consistent amounts; flags price changes and missed charges |
-| End-of-month forecast | `insights.ts` | Spent so far + recurring charges still due + daily pace × days left. The pace blends your recent 90-day average with this month's, trusting this month more as it goes on; one-off big purchases are capped so they don't skew it |
+| Recurring charges | `recurring.ts` | Groups by merchant; schedule and amount come from the **last 3 charges**, so changes (e.g. $250 weekly → $400 every 2 weeks) are picked up within a couple of cycles and noted. Needs a regular schedule over the last 5 gaps (or a clean switch between two schedules) and exact-repeat amounts, so frequent-but-random purchases aren’t mistaken for subscriptions |
+| Tracked bills | `recurring.ts` | Bills you mark by hand (e.g. rent via Bilt, 1st–5th): matched by description + account, amount = average of the last 3 payments, due at the start of the next unpaid window |
+| Upcoming bills (coverage) | `coverage.ts` | Bill-pay account balance (auto-detected from where card payments come from) minus card statements still owed (statement balance − payments since it was issued), tracked bills and recurring charges from that account over 30 days, plus recurring deposits into it; flags when the running balance dips below your cushion |
+| End-of-month forecast | `insights.ts` | Spent so far + recurring charges still due + daily pace × days left. The pace blends your recent 90-day average with this month's, trusting this month more as it goes on; one-off big purchases are capped so they don't skew it. Tap the card for the chart and the full calculation |
 | Unusual this month | `insights.ts` | Compares each category with the same point in your last 3 months; adds biggest purchase, new merchants, price increases, missing subscriptions |
 | Auto-categorize | `rules.ts` | Case-insensitive "contains" match, applied at load time |
 

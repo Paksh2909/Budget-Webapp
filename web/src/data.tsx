@@ -66,7 +66,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setError(null);
       const raw = await api<AppData>('/api/data');
       const rules = raw.rules ?? [];
-      setData({ ...raw, rules, transactions: applyRules(raw.transactions, rules) });
+      setData({
+        ...raw,
+        rules,
+        statements: raw.statements ?? [],
+        bills: raw.bills ?? [],
+        settings: raw.settings ?? { billPayAccount: null, cushion: null },
+        transactions: applyRules(raw.transactions, rules),
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {

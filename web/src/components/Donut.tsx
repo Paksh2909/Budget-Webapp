@@ -10,12 +10,16 @@ interface Props {
   segments: Segment[];
   size?: number;
   thickness?: number;
-  showLabels?: boolean;
   center?: ReactNode;
   ariaLabel: string;
+  /** Index of the highlighted segment; others fade. */
+  selected?: number | null;
+  /** Enables tap-to-select. Called with the tapped index, or null when tapping the selected one again. */
+  onSelect?: (index: number | null) => void;
 }
 
 const GAP_DEG = 1.6;
+const GROW = 6; // extra stroke width on the selected slice
 
 function polar(cx: number, cy: number, r: number, deg: number): [number, number] {
   const rad = ((deg - 90) * Math.PI) / 180;
@@ -29,13 +33,12 @@ function arc(cx: number, cy: number, r: number, a0: number, a1: number): string 
   return `M${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1}`;
 }
 
-export function Donut({ segments, size = 300, thickness = 14, showLabels = false, center, ariaLabel }: Props) {
+export function Donut({ segments, size = 300, thickness = 14, center, ariaLabel, selected = null, onSelect }: Props) {
   const total = segments.reduce((s, x) => s + x.value, 0);
-  const W = showLabels ? Math.max(size, 340) : size;
-  const H = size;
-  const cx = W / 2;
-  const cy = H / 2;
-  const r = showLabels ? H / 2 - 50 : H / 2 - thickness / 2 - 1;
+  const pad = onSelect ? GROW / 2 + 2 : 1;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - thickness / 2 - pad;
 
   let angle = 0;
   const arcs = segments.map((s) => {
@@ -43,52 +46,39 @@ export function Donut({ segments, size = 300, thickness = 14, showLabels = false
     const a0 = angle;
     angle += sweep;
     const gap = segments.length > 1 && sweep > GAP_DEG * 2 ? GAP_DEG / 2 : 0;
-    return { ...s, a0: a0 + gap, a1: a0 + sweep - gap, mid: a0 + sweep / 2, sweep };
+    return { ...s, a0: a0 + gap, a1: a0 + sweep - gap, sweep };
   });
 
-  // Label layout: place outside the ring, then push apart vertically per side.
-  type L = { x: number; y: number; ex: number; ey: number; side: 1 | -1; label: string; color: string };
-  const labels: L[] = [];
-  if (showLabels) {
-    for (const a of arcs) {
-      if (a.sweep < 0.5) continue;
-      const [ex, ey] = polar(cx, cy, r + thickness / 2 + 2, a.mid);
-      const [lx, ly] = polar(cx, cy, r + thickness / 2 + 22, a.mid);
-      labels.push({ x: lx, y: ly, ex, ey, side: lx >= cx ? 1 : -1, label: a.label, color: a.color });
-    }
-    for (const side of [1, -1] as const) {
-      const group = labels.filter((l) => l.side === side).sort((a, b) => a.y - b.y);
-      for (let i = 1; i < group.length; i++) {
-        if (group[i]!.y - group[i - 1]!.y < 16) group[i]!.y = group[i - 1]!.y + 16;
-      }
-    }
-  }
+  const tap = (i: number) => onSelect?.(selected === i ? null : i);
 
   return (
-    <div className="donut" style={{ width: '100%', maxWidth: W }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={ariaLabel}>
+    <div className="donut" style={{ width: '100%', maxWidth: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width="100%" role="img" aria-label={ariaLabel}>
         {total === 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={thickness} />}
-        {arcs.map((a, i) =>
-          a.sweep >= 359.99 ? (
-            <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={a.color} strokeWidth={thickness} />
-          ) : a.a1 > a.a0 ? (
-            <path key={i} d={arc(cx, cy, r, a.a0, a.a1)} fill="none" stroke={a.color} strokeWidth={thickness} />
-          ) : null,
-        )}
-        {labels.map((l, i) => {
-          const tx = l.x + l.side * 6;
+        {arcs.map((a, i) => {
+          if (a.sweep <= 0) return null;
+          const isSel = selected === i;
+          const dim = selected !== null && !isSel;
+          const full = a.sweep >= 359.99;
+          const d = full ? undefined : arc(cx, cy, r, a.a0, Math.max(a.a1, a.a0 + 0.01));
+          const common = {
+            fill: 'none',
+            stroke: a.color,
+            strokeWidth: isSel ? thickness + GROW : thickness,
+            opacity: dim ? 0.28 : 1,
+            className: 'donut-seg',
+          };
           return (
             <g key={i}>
-              <polyline
-                points={`${l.ex},${l.ey} ${l.x},${l.y} ${l.x + l.side * 4},${l.y}`}
-                fill="none"
-                stroke={l.color}
-                strokeWidth={1.5}
-              />
-              <circle cx={l.ex} cy={l.ey} r={2} fill={l.color} />
-              <text x={tx} y={l.y + 4} textAnchor={l.side === 1 ? 'start' : 'end'} className="donut-label">
-                {l.label}
-              </text>
+              {full ? <circle cx={cx} cy={cy} r={r} {...common} /> : <path d={d} {...common} />}
+              {onSelect && (
+                // Wider invisible stroke so thin slices are still easy to tap.
+                full ? (
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke="transparent" strokeWidth={thickness + 22} onClick={() => tap(i)} className="donut-hit" />
+                ) : (
+                  <path d={d} fill="none" stroke="transparent" strokeWidth={thickness + 22} onClick={() => tap(i)} className="donut-hit" />
+                )
+              )}
             </g>
           );
         })}

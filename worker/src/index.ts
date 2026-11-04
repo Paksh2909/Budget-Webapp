@@ -3,6 +3,7 @@ import { CATEGORY_IDS, isCategoryId } from './categories';
 import { decryptString, encryptString } from './crypto';
 import { HttpError, isAllowedOrigin, json, nowIso, num, readJson, str, withCors, type Env } from './http';
 import { plaid, PlaidError } from './plaid';
+import { refreshLiabilities } from './liabilities';
 import { refreshAccounts, syncItem, type ItemRow } from './sync';
 
 type Handler = (req: Request, env: Env, params: Record<string, string>) => Promise<Response>;
@@ -39,6 +40,7 @@ route('POST', '/api/logout-all', (_req, env) => handleLogoutAll(env));
 route('POST', '/api/link/token', async (req, env) => {
   const body = await readJson(req);
   const itemId = str(body.itemId, 'itemId', { optional: true, max: 100 });
+  const purpose = body.purpose === 'statements' ? 'statements' : 'reconnect';
   const request: Record<string, unknown> = {
     client_name: 'Budget',
     user: { client_user_id: 'owner' },
@@ -48,17 +50,31 @@ route('POST', '/api/link/token', async (req, env) => {
   if (env.PLAID_REDIRECT_URI) request.redirect_uri = env.PLAID_REDIRECT_URI;
 
   if (itemId) {
-    // Update mode: re-authenticate an existing Item.
+    // Update mode: re-authenticate an existing Item, or ask for statement (Liabilities) consent.
     const item = await env.DB.prepare(`SELECT access_token_enc FROM items WHERE item_id = ?`)
       .bind(itemId)
       .first<{ access_token_enc: string }>();
     if (!item) throw new HttpError(404, 'Item not found');
     request.access_token = await decryptString(item.access_token_enc, env.TOKEN_ENCRYPTION_KEY);
+    if (purpose === 'statements') request.additional_consented_products = ['liabilities'];
   } else {
     request.products = ['transactions'];
     request.transactions = { days_requested: 730 };
+    // Ask for card statement access up front; only billed once /liabilities/get is called.
+    request.additional_consented_products = ['liabilities'];
   }
-  const res = await plaid<{ link_token: string; expiration: string }>(env, '/link/token/create', request);
+
+  let res: { link_token: string; expiration: string };
+  try {
+    res = await plaid(env, '/link/token/create', request);
+  } catch (err) {
+    // If statement consent isn't available for this Plaid account, still let the user link the bank.
+    if (purpose !== 'statements' && err instanceof PlaidError && request.additional_consented_products) {
+      console.log('link token without liabilities consent:', err.errorCode);
+      delete request.additional_consented_products;
+      res = await plaid(env, '/link/token/create', request);
+    } else throw err;
+  }
   return json({ linkToken: res.link_token, expiration: res.expiration });
 });
 
@@ -116,6 +132,14 @@ route('DELETE', '/api/items/:id', async (_req, env, { id }) => {
   return json({ ok: true });
 });
 
+// Re-check card statements right away (after granting statement access in Plaid).
+route('POST', '/api/items/:id/statements', async (_req, env, { id }) => {
+  const exists = await env.DB.prepare(`SELECT 1 FROM items WHERE item_id = ?`).bind(id).first();
+  if (!exists) throw new HttpError(404, 'Item not found');
+  const status = await refreshLiabilities(env, id!, { force: true });
+  return json({ status });
+});
+
 route('POST', '/api/items/:id/sync', async (_req, env, { id }) => {
   const item = await env.DB.prepare(`SELECT item_id, access_token_enc, institution_name, cursor FROM items WHERE item_id = ?`)
     .bind(id)
@@ -150,9 +174,10 @@ route('PATCH', '/api/accounts/:id', async (req, env, { id }) => {
 // ---------- All data for the app ----------
 
 route('GET', '/api/data', async (_req, env) => {
-  const [items, accounts, transactions, budgets, rules] = await env.DB.batch([
+  const [items, accounts, transactions, budgets, rules, statements, bills, settings] = await env.DB.batch([
     env.DB.prepare(
-      `SELECT item_id, institution_name, status, error_code, last_synced_at FROM items ORDER BY created_at`,
+      `SELECT item_id, institution_name, status, error_code, last_synced_at, liabilities_status
+       FROM items ORDER BY created_at`,
     ),
     env.DB.prepare(
       `SELECT account_id, item_id, name, official_name, mask, type, subtype, current_balance,
@@ -170,14 +195,95 @@ route('GET', '/api/data', async (_req, env) => {
     ),
     env.DB.prepare(`SELECT id, name, amount, categories FROM budgets ORDER BY sort, created_at`),
     env.DB.prepare(`SELECT id, pattern, category, subcategory FROM rules ORDER BY created_at`),
+    env.DB.prepare(
+      `SELECT account_id, last_statement_balance, last_statement_issue_date, minimum_payment_amount,
+              next_payment_due_date, last_payment_amount, last_payment_date, is_overdue, updated_at
+       FROM card_statements`,
+    ),
+    env.DB.prepare(`SELECT id, name, pattern, account_id, day_start, day_end FROM bills ORDER BY created_at`),
+    env.DB.prepare(`SELECT key, value FROM settings WHERE key IN ('bill_pay_account', 'coverage_cushion')`),
   ]);
+  const s = Object.fromEntries((settings!.results as { key: string; value: string }[]).map((r) => [r.key, r.value]));
   return json({
     items: items!.results,
     accounts: accounts!.results,
     transactions: transactions!.results,
     budgets: (budgets!.results as { categories: string }[]).map((b) => ({ ...b, categories: JSON.parse(b.categories) })),
     rules: rules!.results,
+    statements: statements!.results,
+    bills: bills!.results,
+    settings: {
+      billPayAccount: s.bill_pay_account ?? null,
+      cushion: s.coverage_cushion !== undefined ? Number(s.coverage_cushion) : null,
+    },
   });
+});
+
+// ---------- Tracked bills (e.g. rent) ----------
+
+function parseBill(body: Record<string, unknown>) {
+  const name = str(body.name, 'name', { max: 60 })!;
+  const pattern = str(body.pattern, 'pattern', { max: 80 })!;
+  if (pattern.length < 2) throw new HttpError(400, 'pattern must be at least 2 characters');
+  const accountId = str(body.accountId, 'accountId', { optional: true, max: 100 }) ?? null;
+  const dayStart = num(body.dayStart, 'dayStart', { min: 1, max: 31 });
+  const dayEnd = num(body.dayEnd, 'dayEnd', { min: 1, max: 31 });
+  if (!Number.isInteger(dayStart) || !Number.isInteger(dayEnd) || dayEnd < dayStart) {
+    throw new HttpError(400, 'dayStart/dayEnd must be whole days with dayStart <= dayEnd');
+  }
+  return { name, pattern, accountId, dayStart, dayEnd };
+}
+
+route('POST', '/api/bills', async (req, env) => {
+  const b = parseBill(await readJson(req));
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO bills (id, name, pattern, account_id, day_start, day_end, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+  )
+    .bind(id, b.name, b.pattern, b.accountId, b.dayStart, b.dayEnd, nowIso())
+    .run();
+  return json({ id }, 201);
+});
+
+route('PUT', '/api/bills/:id', async (req, env, { id }) => {
+  const b = parseBill(await readJson(req));
+  const res = await env.DB.prepare(
+    `UPDATE bills SET name = ?1, pattern = ?2, account_id = ?3, day_start = ?4, day_end = ?5 WHERE id = ?6`,
+  )
+    .bind(b.name, b.pattern, b.accountId, b.dayStart, b.dayEnd, id)
+    .run();
+  if (!res.meta.changes) throw new HttpError(404, 'Bill not found');
+  return json({ ok: true });
+});
+
+route('DELETE', '/api/bills/:id', async (_req, env, { id }) => {
+  await env.DB.prepare(`DELETE FROM bills WHERE id = ?`).bind(id).run();
+  return json({ ok: true });
+});
+
+// ---------- Settings ----------
+
+route('PUT', '/api/settings', async (req, env) => {
+  const body = await readJson(req);
+  const stmts: D1PreparedStatement[] = [];
+  const upsert = (key: string, value: string | null) =>
+    value === null
+      ? env.DB.prepare(`DELETE FROM settings WHERE key = ?`).bind(key)
+      : env.DB.prepare(`INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).bind(key, value);
+  if ('billPayAccount' in body) {
+    const id = str(body.billPayAccount, 'billPayAccount', { optional: true, max: 100 }) ?? null;
+    if (id) {
+      const ok = await env.DB.prepare(`SELECT 1 FROM accounts WHERE account_id = ?`).bind(id).first();
+      if (!ok) throw new HttpError(400, 'Unknown account');
+    }
+    stmts.push(upsert('bill_pay_account', id));
+  }
+  if ('cushion' in body) {
+    stmts.push(upsert('coverage_cushion', body.cushion === null ? null : String(num(body.cushion, 'cushion', { min: 0, max: 1e7 }))));
+  }
+  if (!stmts.length) throw new HttpError(400, 'Nothing to update');
+  await env.DB.batch(stmts);
+  return json({ ok: true });
 });
 
 // ---------- Auto-categorize rules ----------

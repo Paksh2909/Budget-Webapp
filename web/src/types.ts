@@ -6,6 +6,8 @@ export interface Item {
   status: 'ok' | 'login_required' | 'error';
   error_code: string | null;
   last_synced_at: string | null;
+  /** Card statement access: null = not checked yet, 'ok', 'consent_required', 'unsupported', 'not_enabled', 'error:...' */
+  liabilities_status: string | null;
 }
 
 export interface Account {
@@ -60,10 +62,40 @@ export interface Budget {
   categories: CategoryId[];
 }
 
+export interface CardStatement {
+  account_id: string;
+  last_statement_balance: number | null;
+  last_statement_issue_date: string | null;
+  minimum_payment_amount: number | null;
+  next_payment_due_date: string | null;
+  last_payment_amount: number | null;
+  last_payment_date: string | null;
+  is_overdue: number | null;
+  updated_at: string;
+}
+
+/** A bill you track by hand, e.g. rent paid through Bilt between the 1st and 5th. */
+export interface TrackedBill {
+  id: string;
+  name: string;
+  pattern: string;
+  account_id: string | null;
+  day_start: number;
+  day_end: number;
+}
+
+export interface AppSettings {
+  billPayAccount: string | null;
+  cushion: number | null;
+}
+
 export interface AppData {
   items: Item[];
   accounts: Account[];
   transactions: Txn[];
   budgets: Budget[];
   rules: Rule[];
+  statements: CardStatement[];
+  bills: TrackedBill[];
+  settings: AppSettings;
 }

@@ -1,9 +1,11 @@
-import { AlertTriangle, TrendingUp } from 'lucide-react';
-import { useMemo } from 'react';
+import { AlertTriangle, ArrowRightLeft, CalendarClock, Pencil, TrendingUp } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { BillSheet } from '../components/BillSheet';
 import { CategoryIcon, PageHeader } from '../components/ui';
 import { useData } from '../data';
 import { money } from '../format';
 import { cadenceLabel, upcomingCharges, type Recurring as R } from '../insights';
+import type { TrackedBill } from '../types';
 import { today, toDate } from '../period';
 import { navigate } from '../router';
 import { useInsights } from '../useInsights';
@@ -19,20 +21,38 @@ function relDay(d: string): string {
   return shortDate(d);
 }
 
-function Row({ r, onOpen }: { r: R; onOpen: () => void }) {
+const ordinal = (n: number) => n + (['th', 'st', 'nd', 'rd'][n % 100 >= 11 && n % 100 <= 13 ? 0 : n % 10] ?? 'th');
+
+function changeText(c: NonNullable<R['change']>): string {
+  const amt = Math.abs(c.fromAmount - c.toAmount) > 0.5 ? `${money(c.fromAmount)} → ${money(c.toAmount)}` : '';
+  const cad = c.fromCadence !== c.toCadence ? `${cadenceLabel(c.fromCadence).toLowerCase()} → ${cadenceLabel(c.toCadence).toLowerCase()}` : '';
+  return [amt, cad].filter(Boolean).join(', ');
+}
+
+function Row({ r, onOpen, onEdit }: { r: R; onOpen: () => void; onEdit?: () => void }) {
   return (
-    <li>
+    <li className="rec-li">
       <button className="rec-row" onClick={onOpen} aria-label={`${r.name}, ${money(r.amount)} ${cadenceLabel(r.cadence)}. View transactions`}>
         <CategoryIcon id={r.category} size={36} />
         <span className="rec-main">
           <span className="rec-name">{r.name}</span>
           <span className="muted small">
-            {cadenceLabel(r.cadence)}
-            {r.variable ? ' · varies' : ''} · next {shortDate(r.next)}
+            {r.window ? `Monthly, ${ordinal(r.window.dayStart)}–${ordinal(r.window.dayEnd)}` : cadenceLabel(r.cadence)}
+            {r.variable && !r.window ? ' · varies' : ''} · next {shortDate(r.next)}
           </span>
           {r.priceChange && r.priceChange.to > r.priceChange.from && (
             <span className="rec-flag warn">
               <TrendingUp size={12} aria-hidden="true" /> Up from {money(r.priceChange.from)}
+            </span>
+          )}
+          {r.change && (
+            <span className="rec-flag change">
+              <ArrowRightLeft size={12} aria-hidden="true" /> Changed: {changeText(r.change)}
+            </span>
+          )}
+          {r.trackedBillId && (
+            <span className="rec-flag tracked">
+              <CalendarClock size={12} aria-hidden="true" /> Tracked bill · avg of last {Math.min(3, r.count)} payment{r.count === 1 ? '' : 's'}
             </span>
           )}
           {r.status === 'late' && (
@@ -49,12 +69,19 @@ function Row({ r, onOpen }: { r: R; onOpen: () => void }) {
           {r.cadence !== 'monthly' && <span className="muted small">{money(r.monthly)}/mo</span>}
         </span>
       </button>
+      {onEdit && (
+        <button className="icon-btn rec-edit" onClick={onEdit} aria-label={`Edit ${r.name}`}>
+          <Pencil size={16} />
+        </button>
+      )}
     </li>
   );
 }
 
 export function Recurring() {
-  const { setPeriod } = useData();
+  const { data, setPeriod } = useData();
+  const [editing, setEditing] = useState<TrackedBill | null>(null);
+  const billById = (id?: string) => (id ? data?.bills.find((b) => b.id === id) : undefined);
   const { recurring } = useInsights();
   const expenses = recurring.filter((r) => r.kind === 'expense');
   const income = recurring.filter((r) => r.kind === 'income');
@@ -82,7 +109,10 @@ export function Recurring() {
             <span className="pos">{money(monthlyIncome)}/mo</span>
           </div>
         )}
-        <p className="muted small">Found automatically from charges that repeat on a regular schedule at a similar amount.</p>
+        <p className="muted small">
+          Found automatically from charges that repeat on a regular schedule, using your most recent payments, so changes show up
+          within a couple of cycles. To track something like rent, open one of its transactions and tap “Track as a monthly bill”.
+        </p>
       </section>
 
       {upcoming.length > 0 && (
@@ -105,7 +135,12 @@ export function Recurring() {
         {expenses.length ? (
           <ul className="rec-list">
             {expenses.map((r) => (
-              <Row key={r.key} r={r} onOpen={() => open(r)} />
+              <Row
+                key={r.key}
+                r={r}
+                onOpen={() => open(r)}
+                onEdit={r.trackedBillId ? () => setEditing(billById(r.trackedBillId) ?? null) : undefined}
+              />
             ))}
           </ul>
         ) : (
@@ -123,6 +158,7 @@ export function Recurring() {
           </ul>
         </section>
       )}
+      {editing && <BillSheet draft={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

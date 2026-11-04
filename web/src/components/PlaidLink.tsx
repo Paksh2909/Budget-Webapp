@@ -7,7 +7,8 @@ const PENDING_KEY = 'budget.pendingLink';
 
 interface PendingLink {
   token: string;
-  itemId?: string; // set when re-authenticating (update mode)
+  itemId?: string; // set for update mode (reconnect or statement consent)
+  purpose?: 'reconnect' | 'statements';
 }
 
 function Launcher({
@@ -27,6 +28,11 @@ function Launcher({
       localStorage.removeItem(PENDING_KEY);
       try {
         let itemId = pending.itemId;
+        if (itemId && pending.purpose === 'statements') {
+          // Consent granted: fetch statements right away.
+          const r = await api<{ status: string }>(`/api/items/${encodeURIComponent(itemId)}/statements`, { method: 'POST' });
+          showToast(r.status === 'ok' ? 'Statement access added' : `Statements aren't available from this bank (${r.status})`);
+        }
         if (!itemId) {
           if (!publicToken) throw new Error('Plaid did not return a token. Please try again.');
           const r = await api<{ itemId: string }>('/api/link/exchange', {
@@ -62,10 +68,12 @@ function Launcher({
 
 export function LinkBankButton({
   itemId,
+  purpose = 'reconnect',
   className = 'btn primary',
   children,
 }: {
   itemId?: string;
+  purpose?: 'reconnect' | 'statements';
   className?: string;
   children: ReactNode;
 }) {
@@ -76,8 +84,8 @@ export function LinkBankButton({
   const start = async () => {
     setBusy(true);
     try {
-      const r = await api<{ linkToken: string }>('/api/link/token', { method: 'POST', body: itemId ? { itemId } : {} });
-      const p = { token: r.linkToken, itemId };
+      const r = await api<{ linkToken: string }>('/api/link/token', { method: 'POST', body: itemId ? { itemId, purpose } : {} });
+      const p: PendingLink = { token: r.linkToken, itemId, purpose };
       // Kept for the OAuth redirect round-trip (cleared on finish or exit).
       localStorage.setItem(PENDING_KEY, JSON.stringify(p));
       setPending(p);

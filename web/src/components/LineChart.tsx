@@ -2,9 +2,21 @@ import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { axisMoney } from '../format';
 
 export interface Series {
-  values: number[];
+  /** null = no point (gap), e.g. a projection that starts today. */
+  values: (number | null)[];
   color: string;
   fill?: boolean;
+  dashed?: boolean;
+  /** "step" draws flat runs with vertical jumps (good for balances that change on specific days). */
+  curve?: 'smooth' | 'step';
+  width?: number;
+  opacity?: number;
+}
+
+export interface RefLine {
+  value: number;
+  color: string;
+  label?: string;
 }
 
 interface Props {
@@ -13,6 +25,31 @@ interface Props {
   height?: number;
   zeroBased?: boolean;
   ariaLabel: string;
+  refLines?: RefLine[];
+  /** Vertical marker at this x index (e.g. "today"). */
+  markerIndex?: number;
+}
+
+function stepPath(pts: [number, number][]): string {
+  if (!pts.length) return '';
+  let d = `M${pts[0]![0]},${pts[0]![1]}`;
+  for (let i = 1; i < pts.length; i++) d += `H${pts[i]![0]}V${pts[i]![1]}`;
+  return d;
+}
+
+/** Splits a series into runs of consecutive non-null points. */
+function runs(values: (number | null)[]): { start: number; vals: number[] }[] {
+  const out: { start: number; vals: number[] }[] = [];
+  let cur: { start: number; vals: number[] } | null = null;
+  values.forEach((v, i) => {
+    if (v === null || !Number.isFinite(v)) {
+      cur = null;
+      return;
+    }
+    if (!cur) out.push((cur = { start: i, vals: [] }));
+    cur.vals.push(v);
+  });
+  return out;
 }
 
 const PAD = { top: 12, right: 8, bottom: 26, left: 58 };
@@ -58,7 +95,7 @@ function smoothPath(pts: [number, number][]): string {
   return d;
 }
 
-export function LineChart({ series, xLabels, height = 200, zeroBased = false, ariaLabel }: Props) {
+export function LineChart({ series, xLabels, height = 200, zeroBased = false, ariaLabel, refLines = [], markerIndex }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(320);
   const gradId = useId();
@@ -71,9 +108,9 @@ export function LineChart({ series, xLabels, height = 200, zeroBased = false, ar
     return () => ro.disconnect();
   }, []);
 
-  const all = series.flatMap((s) => s.values);
+  const all = [...series.flatMap((s) => s.values.filter((v): v is number => v !== null && Number.isFinite(v))), ...refLines.map((r) => r.value)];
   const n = Math.max(...series.map((s) => s.values.length), 0);
-  if (!n) {
+  if (!n || !all.length) {
     return (
       <div ref={ref} className="chart-empty" style={{ height }}>
         No data for this period
@@ -128,17 +165,41 @@ export function LineChart({ series, xLabels, height = 200, zeroBased = false, ar
             {xLabels[i]}
           </text>
         ))}
-        {series.map((s, si) => {
-          const pts = s.values.map((v, i) => [x(i), y(v)] as [number, number]);
-          const line = smoothPath(pts);
-          const area = `${line}L${x(s.values.length - 1)},${PAD.top + innerH}L${x(0)},${PAD.top + innerH}Z`;
-          return (
-            <g key={si}>
-              {s.fill !== false && <path d={area} fill={`url(#${gradId}-${si})`} />}
-              <path d={line} fill="none" stroke={s.color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-            </g>
-          );
-        })}
+        {refLines.map((r, i) => (
+          <g key={`ref${i}`}>
+            <line x1={PAD.left} x2={width - PAD.right} y1={y(r.value)} y2={y(r.value)} stroke={r.color} strokeWidth={1.25} strokeDasharray="4 4" opacity={0.8} />
+            {r.label && (
+              <text x={width - PAD.right} y={y(r.value) - 4} textAnchor="end" className="chart-ref" fill={r.color}>
+                {r.label}
+              </text>
+            )}
+          </g>
+        ))}
+        {markerIndex !== undefined && markerIndex >= 0 && markerIndex < n && (
+          <line x1={x(markerIndex)} x2={x(markerIndex)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--muted)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
+        )}
+        {series.map((s, si) =>
+          runs(s.values).map((run, ri) => {
+            const pts = run.vals.map((v, i) => [x(run.start + i), y(v)] as [number, number]);
+            const line = s.curve === 'step' ? stepPath(pts) : smoothPath(pts);
+            const lastX = pts[pts.length - 1]![0];
+            const area = `${line}L${lastX},${PAD.top + innerH}L${pts[0]![0]},${PAD.top + innerH}Z`;
+            return (
+              <g key={`${si}-${ri}`} opacity={s.opacity ?? 1}>
+                {s.fill !== false && !s.dashed && <path d={area} fill={`url(#${gradId}-${si})`} />}
+                <path
+                  d={line}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={s.width ?? 2.5}
+                  strokeDasharray={s.dashed ? '6 5' : undefined}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              </g>
+            );
+          }),
+        )}
       </svg>
     </div>
   );

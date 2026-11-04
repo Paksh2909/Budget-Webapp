@@ -6,8 +6,36 @@ import { LinkBankButton } from '../components/PlaidLink';
 import { AccountIcon, PageHeader, Sheet } from '../components/ui';
 import { useData } from '../data';
 import { money, relativeTime } from '../format';
+import { toDate } from '../period';
 import { navigate } from '../router';
 import type { Account } from '../types';
+
+/** Card statement status for one bank, with a one-time "Allow statement access" when Plaid needs consent. */
+function StatementAccess({ itemId, status }: { itemId: string; status: string | null }) {
+  if (status === 'ok') return null;
+  if (status === null) {
+    return <p className="muted small stmt-note">Checking for card statements on the next sync…</p>;
+  }
+  if (status === 'consent_required') {
+    return (
+      <div className="stmt-box">
+        <span className="small">
+          Allow statement access to see exact statement balances and due dates for these cards.
+        </span>
+        <LinkBankButton itemId={itemId} purpose="statements" className="btn small primary">
+          Allow statement access
+        </LinkBankButton>
+      </div>
+    );
+  }
+  const msg =
+    status === 'unsupported'
+      ? "This bank doesn't share statement details. Due dates are estimated from your payment history."
+      : status === 'not_enabled'
+        ? 'Statement data (Liabilities) isn’t enabled on your Plaid account. Due dates are estimated.'
+        : `Statements unavailable (${status.replace(/^error:/, '')}). Due dates are estimated.`;
+  return <p className="muted small stmt-note">{msg}</p>;
+}
 
 function RenameSheet({ account, bank, onClose }: { account: Account; bank: string; onClose: () => void }) {
   const { data, reload, showToast } = useData();
@@ -102,6 +130,7 @@ export function Accounts() {
   const [renaming, setRenaming] = useState<{ account: Account; bank: string } | null>(null);
   const items = data?.items ?? [];
   const accounts = data?.accounts ?? [];
+  const statements = useMemo(() => new Map((data?.statements ?? []).map((s) => [s.account_id, s])), [data]);
 
   const toggleHidden = async (a: Account) => {
     try {
@@ -187,6 +216,7 @@ export function Accounts() {
                 </LinkBankButton>
               </div>
             )}
+            {itemAccounts.some((a) => a.type === 'credit') && <StatementAccess itemId={item.item_id} status={item.liabilities_status} />}
             <ul className="acct-list">
               {itemAccounts.map((a) => (
                 <li key={a.account_id} className={a.hidden ? 'dimmed' : ''}>
@@ -203,6 +233,17 @@ export function Accounts() {
                     <span className="muted small acct-name">
                       {[a.mask && `••${a.mask}`, a.display_name ? a.name : (a.subtype ?? a.type)].filter(Boolean).join(' · ')}
                     </span>
+                    {(() => {
+                      const st = a.type === 'credit' ? statements.get(a.account_id) : undefined;
+                      if (!st?.next_payment_due_date || st.last_statement_balance === null) return null;
+                      return (
+                        <span className={'small acct-stmt' + (st.is_overdue ? ' neg' : '')}>
+                          Statement {money(st.last_statement_balance)} · due{' '}
+                          {toDate(st.next_payment_due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                          {st.is_overdue ? ' · overdue' : ''}
+                        </span>
+                      );
+                    })()}
                   </button>
                   <span className={accountBalance(a) < 0 ? 'neg' : ''}>{money(accountBalance(a))}</span>
                   <button

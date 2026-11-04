@@ -1,16 +1,18 @@
 import { useMemo } from 'react';
+import { computeCoverage } from './coverage';
 import { useData } from './data';
-import { detectRecurring, forecastMonth, unusualInsights } from './insights';
+import { allRecurring, forecastMonth, unusualInsights } from './insights';
 
-/** Recurring series, this month's forecast, and insights — memoized on the loaded data. */
+/** Recurring series (incl. tracked bills), forecast, insights and bill coverage, memoized on loaded data. */
 export function useInsights() {
-  const { txns } = useData();
+  const { data, txns } = useData();
   return useMemo(() => {
-    const recurring = detectRecurring(txns);
+    const recurring = allRecurring(txns, data?.bills ?? []);
     return {
       recurring,
       forecast: forecastMonth(txns, recurring),
       insights: unusualInsights(txns, recurring),
+      coverage: data ? computeCoverage(data, txns, recurring) : null,
     };
-  }, [txns]);
+  }, [txns, data]);
 }

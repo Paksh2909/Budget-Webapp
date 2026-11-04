@@ -1,11 +1,14 @@
-import { Clock, Plus } from 'lucide-react';
+import { CalendarClock, Clock, Plus } from 'lucide-react';
+import { BillSheet, type BillDraft } from './BillSheet';
 import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { accountName, MANUAL_ACCOUNT_ID } from '../calc';
 import { CATEGORIES, category, DEFAULT_SUBCATEGORIES, type CategoryId } from '../categories';
 import { useData } from '../data';
 import { money, timeOf } from '../format';
+import { billMatches } from '../recurring';
 import { matchText, suggestPattern } from '../rules';
+import { toDate } from '../period';
 import type { Account, Txn } from '../types';
 import { CategoryIcon, Sheet } from './ui';
 
@@ -129,6 +132,20 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
   const [note, setNote] = useState(t.note ?? '');
   const [makeRule, setMakeRule] = useState(false);
   const [pattern, setPattern] = useState(() => suggestPattern(t));
+  const [billDraft, setBillDraft] = useState<BillDraft | null>(null);
+  // Already tracked? (A bill whose pattern + account match this transaction.)
+  const trackedBill = data?.bills.find((b) => billMatches(b, [t]).length > 0);
+  const openTrack = () => {
+    if (trackedBill) return setBillDraft(trackedBill);
+    const day = toDate(t.date).getUTCDate();
+    setBillDraft({
+      name: t.merchant_name ?? suggestPattern(t),
+      pattern: suggestPattern(t),
+      account_id: t.account_id,
+      day_start: Math.max(1, day - 2),
+      day_end: Math.min(31, day + 2),
+    });
+  };
   const rule = t.rule_id ? data?.rules.find((r) => r.id === t.rule_id) : undefined;
   // How many transactions the rule would affect (excluding hand-categorized ones).
   const ruleMatches = useMemo(() => {
@@ -204,6 +221,13 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
         <span className="field-label">Note</span>
         <input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="Add a note" />
       </label>
+      {t.source === 'plaid' && t.amount > 0 && (
+        <button className="link-row track-row" onClick={openTrack}>
+          <CalendarClock size={20} aria-hidden="true" />
+          <span>{trackedBill ? `Tracked as bill: ${trackedBill.name}` : 'Track as a monthly bill'}</span>
+          <span className="muted small">{trackedBill ? 'Edit' : 'e.g. rent'}</span>
+        </button>
+      )}
       {t.source === 'plaid' && (
         <div className="rule-box">
           <label className="toggle-row">
@@ -264,6 +288,7 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
           Save
         </button>
       </div>
+      {billDraft && <BillSheet draft={billDraft} onClose={() => setBillDraft(null)} />}
     </Sheet>
   );
 }
