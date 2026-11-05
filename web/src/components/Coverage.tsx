@@ -152,17 +152,26 @@ export function CoverageCard({ coverage }: { coverage: Coverage }) {
         <ul className="coverage-list">
           {events.map((e, i) => (
             <li key={e.name + e.date + i}>
-              <span className={'up-when' + (e.late ? ' late' : '')}>{e.late ? 'Due now' : shortDate(e.date)}</span>
+              <span className={'up-when' + (e.late && !e.paid ? ' late' : '')}>{e.late && !e.paid ? 'Due now' : shortDate(e.date)}</span>
               <span className="cov-main">
                 <span className="up-name">{e.name}</span>
                 <span className="muted small cov-detail">{e.detail}</span>
               </span>
               <span className="cov-side">
-                <span className={e.amount < 0 ? 'pos' : 'neg'}>
-                  {e.amount < 0 ? '+' : ''}
-                  {money(Math.abs(e.amount))}
-                </span>
-                <span className={`cov-badge ${e.source}`}>{SOURCE_LABEL[e.source]}</span>
+                {e.paid ? (
+                  <>
+                    <span className="muted cov-paid-amt">{money(e.paid.amount)}</span>
+                    <span className={`cov-badge ${e.paid.inTransit ? 'transit' : 'paid'}`}>{e.paid.inTransit ? 'In transit' : 'Paid'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className={e.amount < 0 ? 'pos' : 'neg'}>
+                      {e.amount < 0 ? '+' : ''}
+                      {money(Math.abs(e.amount))}
+                    </span>
+                    <span className={`cov-badge ${e.source}`}>{SOURCE_LABEL[e.source]}</span>
+                  </>
+                )}
               </span>
             </li>
           ))}

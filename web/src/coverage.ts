@@ -4,6 +4,7 @@
 import { accountName } from './calc';
 import { addDays, daysBetween, today as todayFn, toDate } from './period';
 import { clampDay, median, occurrencesIn, type Recurring } from './recurring';
+import { paymentsInTransit } from './payments';
 import type { Account, AppData, CardStatement, Txn } from './types';
 
 export const HORIZON_DAYS = 30;
@@ -20,6 +21,8 @@ export interface CoverageEvent {
   source: 'statement' | 'tracked' | 'detected' | 'estimate';
   detail: string;
   late?: boolean;
+  /** Statement already paid (amount is then 0). inTransit = left the bank account, not on the card yet. */
+  paid?: { amount: number; date: string; inTransit: boolean };
 }
 
 export interface Coverage {
@@ -60,13 +63,22 @@ function paidSince(cardId: string, txns: Txn[], from: string): number {
     .reduce((s, t) => s - t.amount, 0);
 }
 
-function cardEvents(card: Account, stmt: CardStatement | undefined, txns: Txn[], today: string, end: string): CoverageEvent[] {
+function cardEvents(
+  card: Account,
+  stmt: CardStatement | undefined,
+  txns: Txn[],
+  today: string,
+  end: string,
+  transit: Txn[] = [],
+): CoverageEvent[] {
   const name = accountName(card);
   const fmtShort = (d: string) => toDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
   if (stmt?.next_payment_due_date && stmt.last_statement_balance !== null) {
     const issued = stmt.last_statement_issue_date ?? addDays(stmt.next_payment_due_date, -25);
-    const paid = paidSince(card.account_id, txns, issued);
+    const posted = paidSince(card.account_id, txns, issued);
+    const transitAmt = transit.filter((t) => t.date > issued).reduce((s, t) => s + t.amount, 0);
+    const paid = posted + transitAmt;
     const remaining = Math.max(0, stmt.last_statement_balance - paid);
     const out: CoverageEvent[] = [];
     if (remaining >= 1) {
@@ -81,15 +93,32 @@ function cardEvents(card: Account, stmt: CardStatement | undefined, txns: Txn[],
           late: due < today || !!stmt.is_overdue,
           detail:
             paid > 0
-              ? `Statement ${fmtMoney(stmt.last_statement_balance)} − ${fmtMoney(paid)} paid · due ${fmtShort(due)}`
+              ? `Statement ${fmtMoney(stmt.last_statement_balance)} − ${fmtMoney(paid)} ${transitAmt > 0 ? 'paid (some in transit)' : 'paid'} · due ${fmtShort(due)}`
               : `Statement balance · due ${fmtShort(due)}`,
         });
       }
     } else {
+      // Show it as paid, with when (and whether the money has reached the card yet).
+      if (paid >= 1 && stmt.last_statement_balance >= 1) {
+        const lastPaid = [
+          ...txns.filter((t) => t.account_id === card.account_id && t.amount < 0 && t.category === 'transfer' && t.date > issued).map((t) => t.date),
+          ...transit.map((t) => t.date),
+        ].sort().pop() ?? today;
+        out.push({
+          date: lastPaid,
+          name,
+          amount: 0,
+          kind: 'card',
+          source: 'statement',
+          paid: { amount: stmt.last_statement_balance, date: lastPaid, inTransit: transitAmt > 0 },
+          detail: transitAmt > 0 ? `Payment sent ${fmtShort(lastPaid)}, not on the card yet` : `Statement paid ${fmtShort(lastPaid)}`,
+        });
+      }
       // This statement is paid. The next one closes about a month after the last; charges since
       // then (the current balance) are the best estimate, due ~1 month after this due date.
       const nextDue = addDays(stmt.next_payment_due_date, 30);
-      const estimate = Math.max(0, card.current_balance ?? 0);
+      // A payment in transit hasn't lowered the card balance yet.
+      const estimate = Math.max(0, (card.current_balance ?? 0) - transitAmt);
       if (nextDue < end && nextDue >= today && estimate >= 1) {
         out.push({ date: nextDue, name, amount: estimate, kind: 'card', source: 'estimate', detail: `Next statement (est. from current balance) · ~${fmtShort(nextDue)}` });
       }
@@ -130,7 +159,19 @@ export function computeCoverage(data: AppData, txns: Txn[], recurring: Recurring
   const events: CoverageEvent[] = [];
   const statements = new Map(data.statements.map((s) => [s.account_id, s]));
   const cards = accounts.filter((a) => a.type === 'credit' && !a.hidden);
-  for (const card of cards) events.push(...cardEvents(card, statements.get(card.account_id), txns, today, end));
+  // Remaining per statement (before in-transit payments), used to attribute payments still in transit.
+  const remainingByCard = new Map<string, number>();
+  for (const card of cards) {
+    const st = statements.get(card.account_id);
+    if (st?.last_statement_balance == null) continue;
+    const issued = st.last_statement_issue_date ?? addDays(st.next_payment_due_date ?? today, -25);
+    remainingByCard.set(card.account_id, Math.max(0, st.last_statement_balance - paidSince(card.account_id, txns, issued)));
+  }
+  const transit = paymentsInTransit(txns, accounts, data.items, remainingByCard, today);
+  for (const card of cards) {
+    const mine = transit.filter((x) => x.cardId === card.account_id).map((x) => x.out);
+    events.push(...cardEvents(card, statements.get(card.account_id), txns, today, end, mine));
+  }
 
   if (account) {
     // Bills and recurring charges paid from this account; recurring deposits into it.

@@ -147,6 +147,9 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
     });
   };
   const rule = t.rule_id ? data?.rules.find((r) => r.id === t.rule_id) : undefined;
+  const partner = t.matched_with ? data?.transactions.find((x) => x.id === t.matched_with) : undefined;
+  const partnerAcct = partner ? data?.accounts.find((a) => a.account_id === partner.account_id) : undefined;
+  const partnerAccount = partnerAcct ? accountName(partnerAcct) : 'another account';
   // How many transactions the rule would affect (excluding hand-categorized ones).
   const ruleMatches = useMemo(() => {
     const p = pattern.trim().toLowerCase();
@@ -201,6 +204,14 @@ export function TxnSheet({ t, account, onClose }: { t: Txn; account: string; onC
           <dd>{account}</dd>
           <dt>Description</dt>
           <dd>{t.name}</dd>
+          {partner && (
+            <>
+              <dt>Paired with</dt>
+              <dd>
+                {partner.amount < 0 ? 'Payment received' : 'Payment sent'} · {partnerAccount} · {partner.date}
+              </dd>
+            </>
+          )}
           {rule && !t.cat_overridden && (
             <>
               <dt>Rule</dt>

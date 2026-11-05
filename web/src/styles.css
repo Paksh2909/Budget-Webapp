@@ -2205,3 +2205,19 @@ select {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ---------- matched payments ---------- */
+
+.cov-paid-amt {
+  text-decoration: line-through;
+}
+
+.cov-badge.paid {
+  background: rgba(95, 208, 122, 0.14);
+  color: var(--pos);
+}
+
+.cov-badge.transit {
+  background: rgba(107, 140, 255, 0.16);
+  color: #b8c8ff;
+}

@@ -46,6 +46,7 @@ export interface Txn {
   cat_overridden: number; // user picked the category by hand
   sub_overridden: number; // user picked the subcategory by hand
   rule_id?: string; // set when an auto-categorize rule decided the category
+  matched_with?: string; // id of the paired card payment (cash side ↔ card side)
 }
 
 export interface Rule {

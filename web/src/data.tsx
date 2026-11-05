@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api } from './api';
 import { visibleTxns } from './calc';
 import { EMPTY_FILTERS, type Filters } from './filters';
+import { applyPaymentMatches } from './payments';
 import { applyRules } from './rules';
 import { today, type Period } from './period';
 import type { AppData, Txn } from './types';
@@ -83,7 +84,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           timezone: raw.settings?.timezone ?? null,
         },
         snapshots: raw.snapshots ?? [],
-        transactions: applyRules(raw.transactions, rules),
+        transactions: applyPaymentMatches(applyRules(raw.transactions, rules), raw.accounts),
       });
     } catch (e) {
       setError((e as Error).message);
