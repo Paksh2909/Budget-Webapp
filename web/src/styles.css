@@ -2221,3 +2221,38 @@ select {
   background: rgba(107, 140, 255, 0.16);
   color: #b8c8ff;
 }
+
+/* ---------- expected bills on the calendar ---------- */
+
+.cal-expected {
+  border: 1px dashed currentColor;
+  border-radius: 6px;
+  padding: 0 3px;
+  opacity: 0.85;
+}
+
+.cal-cell.has-expected.future {
+  background: rgba(107, 140, 255, 0.05);
+}
+
+.expected-li {
+  grid-template-columns: 1fr auto !important;
+}
+
+.expected-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px dashed var(--surface-3);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+}
+
+.cal-legend {
+  font-size: 12px;
+  padding: 8px 6px 0;
+}

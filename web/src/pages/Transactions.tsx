@@ -4,7 +4,9 @@ import { cashflow, isIncome, isTransfer } from '../calc';
 import { category } from '../categories';
 import { FiltersSheet } from '../components/FiltersSheet';
 import { accountLabel, TxnRow, TxnSheet } from '../components/Transactions';
-import { ActiveFilters, FilterButton, PeriodBar } from '../components/ui';
+import { ActiveFilters, FilterButton, PeriodBar, Sheet } from '../components/ui';
+import type { CoverageEvent } from '../coverage';
+import { useInsights } from '../useInsights';
 import { useData } from '../data';
 import { applyFilters } from '../filters';
 import { monthLong, signedMoney, money, weekday } from '../format';
@@ -16,8 +18,55 @@ const VIEW_KEY = 'budget.txnView';
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const compact = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Fits estimates in a calendar cell: 1,688.15 → 1.7k, 400 → 400. */
+const short = (v: number) => (v >= 1000 ? `${+(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 
-function CalendarView({ month, txns, onPickDay }: { month: string; txns: Txn[]; onPickDay: (d: string) => void }) {
+const SOURCE_LABEL: Record<CoverageEvent['source'], string> = { statement: 'Statement', tracked: 'Tracked', detected: 'Recurring', estimate: 'Estimate' };
+
+/** What Upcoming bills expects on a future day (or still due today). */
+function ExpectedSheet({ date, events, onClose }: { date: string; events: CoverageEvent[]; onClose: () => void }) {
+  const out = events.filter((e) => e.amount > 0).reduce((s, e) => s + e.amount, 0);
+  const inn = -events.filter((e) => e.amount < 0).reduce((s, e) => s + e.amount, 0);
+  const d = toDate(date);
+  return (
+    <Sheet title={`Expected ${monthLong(d.getUTCMonth())} ${d.getUTCDate()}`} onClose={onClose}>
+      <ul className="coverage-list">
+        {events.map((e, i) => (
+          <li key={e.name + i} className="expected-li">
+            <span className="cov-main">
+              <span className="up-name">{e.name}</span>
+              <span className="muted small cov-detail">{e.detail}</span>
+            </span>
+            <span className="cov-side">
+              <span className={e.amount < 0 ? 'pos' : 'neg'}>
+                {e.amount < 0 ? '+' : ''}
+                {money(Math.abs(e.amount))}
+              </span>
+              <span className={`cov-badge ${e.source}`}>{SOURCE_LABEL[e.source]}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="muted small">
+        {out > 0 ? `${money(out)} expected out` : ''}
+        {out > 0 && inn > 0 ? ' · ' : ''}
+        {inn > 0 ? `${money(inn)} expected in` : ''}. From Upcoming bills on Home (next 30 days, bill-pay account).
+      </p>
+    </Sheet>
+  );
+}
+
+function CalendarView({
+  month,
+  txns,
+  expected,
+  onPickDay,
+}: {
+  month: string;
+  txns: Txn[];
+  expected: Map<string, CoverageEvent[]>;
+  onPickDay: (d: string) => void;
+}) {
   const first = monthStart(month);
   const m = toDate(first).getUTCMonth();
   const lead = (toDate(first).getUTCDay() + 6) % 7; // Monday-first grid
@@ -52,20 +101,25 @@ function CalendarView({ month, txns, onPickDay }: { month: string; txns: Txn[]; 
             const dd = toDate(d);
             const outside = dd.getUTCMonth() !== m;
             const s = sums.get(d);
+            const exp = expected.get(d) ?? [];
+            const expOut = exp.filter((e) => e.amount > 0).reduce((a, e) => a + e.amount, 0);
+            const expIn = -exp.filter((e) => e.amount < 0).reduce((a, e) => a + e.amount, 0);
             const dayNum = dd.getUTCDate();
             const label = dayNum === 1 && outside ? `${dd.getUTCMonth() + 1}.1` : String(dayNum);
             return (
               <button
                 key={d}
                 role="gridcell"
-                className={'cal-cell' + (outside ? ' outside' : '') + (d > t ? ' future' : '')}
+                className={'cal-cell' + (outside ? ' outside' : '') + (d > t ? ' future' : '') + (exp.length ? ' has-expected' : '')}
                 onClick={() => onPickDay(d)}
-                aria-label={`${d}${s ? `, income ${money(s.inc)}, expenses ${money(s.exp)}` : ''}`}
+                aria-label={`${d}${s ? `, income ${money(s.inc)}, expenses ${money(s.exp)}` : ''}${exp.length ? `, expected ${exp.map((e) => `${e.name} ${money(Math.abs(e.amount))}`).join(', ')}` : ''}`}
               >
                 <span className={'cal-day' + (i === 6 ? ' sun' : '') + (d === t ? ' today' : '')}>{label}</span>
                 {s && s.inc > 0.005 && <span className="pos cal-amt">{compact.format(s.inc)}</span>}
                 {s && s.exp > 0.005 && <span className="neg cal-amt">{compact.format(s.exp)}</span>}
                 {s && s.exp < -0.005 && <span className="pos cal-amt">{compact.format(-s.exp)}</span>}
+                {expOut > 0.005 && <span className="cal-amt cal-expected neg">~{short(expOut)}</span>}
+                {expIn > 0.005 && <span className="cal-amt cal-expected pos">~{short(expIn)}</span>}
               </button>
             );
           })}
@@ -77,6 +131,18 @@ function CalendarView({ month, txns, onPickDay }: { month: string; txns: Txn[]; 
 
 export function Transactions({ initialQuery = '' }: { initialQuery?: string }) {
   const { data, txns, period, setPeriod, filters } = useData();
+  const { coverage } = useInsights();
+  const [expectedDay, setExpectedDay] = useState<string | null>(null);
+  // Upcoming bills events by day: today (still due) and the future. Paid statements are left out.
+  const expected = useMemo(() => {
+    const m = new Map<string, CoverageEvent[]>();
+    const t0 = today();
+    for (const e of coverage?.events ?? []) {
+      if (e.paid || e.amount === 0 || e.date < t0) continue;
+      m.set(e.date, [...(m.get(e.date) ?? []), e]);
+    }
+    return m;
+  }, [coverage]);
   const [query, setQuery] = useState(initialQuery);
   const [limit, setLimit] = useState(PAGE);
   const [editing, setEditing] = useState<Txn | null>(null);
@@ -186,13 +252,28 @@ export function Transactions({ initialQuery = '' }: { initialQuery?: string }) {
         <CalendarView
           month={calendarMonth}
           txns={matching}
+          expected={expected}
           onPickDay={(d) => {
+            if (d > today() && expected.has(d)) return setExpectedDay(d);
             setPeriod({ kind: 'day', anchor: d });
             switchView('list');
           }}
         />
-      ) : (
+      ) : null}
+      {view === 'calendar' && expected.size > 0 && (
+        <p className="muted cal-legend">Dashed ~amounts are expected from Upcoming bills. Tap a day to see them.</p>
+      )}
+      {view === 'list' && (
         <>
+          {period.kind === 'day' && expected.has(period.anchor) && (
+            <button className="expected-banner" onClick={() => setExpectedDay(period.anchor)}>
+              <CalendarClock size={18} aria-hidden="true" />
+              <span>
+                {period.anchor === today() ? 'Still expected today' : 'Expected this day'}:{' '}
+                {(expected.get(period.anchor) ?? []).map((e) => `${e.name} ${money(Math.abs(e.amount))}`).join(' · ')}
+              </span>
+            </button>
+          )}
           {groups.map((g) => {
             const d = toDate(g.date);
             return (
@@ -223,6 +304,7 @@ export function Transactions({ initialQuery = '' }: { initialQuery?: string }) {
 
       {editing && <TxnSheet t={editing} account={accountLabel(editing, accounts)} onClose={() => setEditing(null)} />}
       {showFilters && <FiltersSheet onClose={() => setShowFilters(false)} />}
+      {expectedDay && <ExpectedSheet date={expectedDay} events={expected.get(expectedDay) ?? []} onClose={() => setExpectedDay(null)} />}
     </div>
   );
 }
