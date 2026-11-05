@@ -66,6 +66,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setError(null);
       const raw = await api<AppData>('/api/data');
       const rules = raw.rules ?? [];
+      // Snapshots are dated in your timezone; tell the backend if it doesn't match this device.
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz && raw.settings?.timezone !== tz) {
+        api('/api/settings', { method: 'PUT', body: { timezone: tz } }).catch(() => {});
+      }
       setData({
         ...raw,
         rules,
@@ -75,7 +80,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           billPayAccount: raw.settings?.billPayAccount ?? null,
           cushion: raw.settings?.cushion ?? null,
           homeLayout: raw.settings?.homeLayout ?? null,
+          timezone: raw.settings?.timezone ?? null,
         },
+        snapshots: raw.snapshots ?? [],
         transactions: applyRules(raw.transactions, rules),
       });
     } catch (e) {

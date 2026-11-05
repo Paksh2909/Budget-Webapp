@@ -63,7 +63,10 @@ export function Home() {
   };
   const r = range(period);
   const accounts = useMemo(() => (data?.accounts ?? []).filter((a) => !a.hidden), [data]);
-  const series = useMemo(() => balanceSeries(data?.accounts ?? [], data?.transactions ?? [], r), [data, r.start, r.end]);
+  const series = useMemo(
+    () => balanceSeries(data?.accounts ?? [], data?.transactions ?? [], r, data?.snapshots ?? []),
+    [data, r.start, r.end],
+  );
   const cats = useMemo(() => byCategory(txns, r), [txns, r.start, r.end]);
   const { recurring, forecast, insights, coverage } = useInsights();
   const lastSync = data?.items.length
@@ -115,6 +118,13 @@ export function Home() {
           height={180}
           ariaLabel={`Balance over ${label(period)}, from ${money(series.baseline)} to ${money(series.current)}`}
         />
+        {series.dates.length > 0 && (
+          <p className="muted small chart-note">
+            {!series.firstSnapshot || series.firstSnapshot > series.dates[0]!
+              ? `Recorded daily${series.firstSnapshot ? ` since ${shortDate(series.firstSnapshot)}` : ' from today'}; earlier days are estimated from transactions (investments look flat there).`
+              : 'Recorded daily balances, including market moves.'}
+          </p>
+        )}
       </section>
     ),
     forecast: <>{txns.length > 0 ? <ForecastCard forecast={forecast} /> : null}</>,

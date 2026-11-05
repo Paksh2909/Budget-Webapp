@@ -1,6 +1,7 @@
 import { mapCategory } from './categories';
 import { decryptString } from './crypto';
 import { refreshLiabilities } from './liabilities';
+import { snapshotBalances } from './snapshots';
 import { nowIso, type Env } from './http';
 import { plaid, PlaidError, type AccountsResponse, type PlaidAccount, type PlaidTransaction, type SyncResponse } from './plaid';
 
@@ -64,6 +65,8 @@ export async function upsertAccounts(env: Env, itemId: string, accounts: PlaidAc
   )
     .bind(JSON.stringify(rows), itemId, nowIso())
     .run();
+  // Fresh balances: record (or update) today's snapshot for this bank's accounts.
+  await snapshotBalances(env, { itemId, overwrite: true });
 }
 
 function toRow(t: PlaidTransaction) {

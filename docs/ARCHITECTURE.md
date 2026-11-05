@@ -105,6 +105,7 @@ erDiagram
     items ||--o{ accounts : has
     accounts ||--o{ transactions : has
     accounts ||--o| card_statements : has
+    accounts ||--o{ balance_snapshots : has
     items {
         text item_id PK
         text access_token_enc "AES-GCM"
@@ -140,6 +141,11 @@ erDiagram
         text category
         text subcategory
     }
+    balance_snapshots {
+        text date PK "your local day"
+        text account_id PK
+        real current_balance
+    }
     card_statements {
         text account_id PK "credit card"
         real last_statement_balance
@@ -155,7 +161,7 @@ erDiagram
         int day_end
     }
     settings {
-        text key PK "session_version, sync_attempt:*, bill_pay_account, coverage_cushion, home_layout"
+        text key PK "session_version, sync_attempt:*, bill_pay_account, coverage_cushion, home_layout, timezone"
         text value
     }
 ```
@@ -175,7 +181,7 @@ All in `web/src/`:
 | Feature | File | Approach |
 | --- | --- | --- |
 | Cash flow, categories | `calc.ts` | Sums over the selected period; transfers and card payments excluded |
-| Balance history | `calc.ts` | Walks back from today's balances through posted transactions |
+| Balance history | `calc.ts` | Uses the daily balance snapshot for each account where one exists (captures market moves and interest), and walks back through posted transactions between and before snapshots. Snapshots are written on every sync and filled in once a day by the cron, dated in your timezone |
 | Recurring charges | `recurring.ts` | Groups by merchant; schedule and amount come from the **last 3 charges**, so changes (e.g. $250 weekly → $400 every 2 weeks) are picked up within a couple of cycles and noted. Needs a regular schedule over the last 5 gaps (or a clean switch between two schedules) and exact-repeat amounts, so frequent-but-random purchases aren’t mistaken for subscriptions |
 | Tracked bills | `recurring.ts` | Bills you mark by hand (e.g. rent via Bilt, 1st–5th): matched by description + account, amount = average of the last 3 payments, due at the start of the next unpaid window |
 | Upcoming bills (coverage) | `coverage.ts` | Bill-pay account balance (auto-detected from where card payments come from) minus card statements still owed (statement balance − payments since it was issued), tracked bills and recurring charges from that account over 30 days, plus recurring deposits into it; flags when the running balance dips below your cushion |

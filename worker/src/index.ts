@@ -4,6 +4,7 @@ import { decryptString, encryptString } from './crypto';
 import { HttpError, isAllowedOrigin, json, nowIso, num, readJson, str, withCors, type Env } from './http';
 import { plaid, PlaidError } from './plaid';
 import { refreshLiabilities } from './liabilities';
+import { isValidTimeZone, snapshotBalances } from './snapshots';
 import { refreshAccounts, syncItem, type ItemRow } from './sync';
 
 type Handler = (req: Request, env: Env, params: Record<string, string>) => Promise<Response>;
@@ -125,6 +126,7 @@ route('DELETE', '/api/items/:id', async (_req, env, { id }) => {
   }
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM transactions WHERE item_id = ?`).bind(id),
+    env.DB.prepare(`DELETE FROM balance_snapshots WHERE account_id IN (SELECT account_id FROM accounts WHERE item_id = ?)`).bind(id),
     env.DB.prepare(`DELETE FROM accounts WHERE item_id = ?`).bind(id),
     env.DB.prepare(`DELETE FROM items WHERE item_id = ?`).bind(id),
     env.DB.prepare(`DELETE FROM settings WHERE key = ?`).bind(`sync_attempt:${id}`),
@@ -174,7 +176,7 @@ route('PATCH', '/api/accounts/:id', async (req, env, { id }) => {
 // ---------- All data for the app ----------
 
 route('GET', '/api/data', async (_req, env) => {
-  const [items, accounts, transactions, rules, statements, bills, settings] = await env.DB.batch([
+  const [items, accounts, transactions, rules, statements, bills, settings, snapshots] = await env.DB.batch([
     env.DB.prepare(
       `SELECT item_id, institution_name, status, error_code, last_synced_at, liabilities_status
        FROM items ORDER BY created_at`,
@@ -200,7 +202,10 @@ route('GET', '/api/data', async (_req, env) => {
        FROM card_statements`,
     ),
     env.DB.prepare(`SELECT id, name, pattern, account_id, day_start, day_end FROM bills ORDER BY created_at`),
-    env.DB.prepare(`SELECT key, value FROM settings WHERE key IN ('bill_pay_account', 'coverage_cushion', 'home_layout')`),
+    env.DB.prepare(`SELECT key, value FROM settings WHERE key IN ('bill_pay_account', 'coverage_cushion', 'home_layout', 'timezone')`),
+    env.DB.prepare(
+      `SELECT date, account_id, current_balance FROM balance_snapshots WHERE current_balance IS NOT NULL ORDER BY date`,
+    ),
   ]);
   const s = Object.fromEntries((settings!.results as { key: string; value: string }[]).map((r) => [r.key, r.value]));
   return json({
@@ -209,11 +214,13 @@ route('GET', '/api/data', async (_req, env) => {
     transactions: transactions!.results,
     rules: rules!.results,
     statements: statements!.results,
+    snapshots: snapshots!.results,
     bills: bills!.results,
     settings: {
       billPayAccount: s.bill_pay_account ?? null,
       cushion: s.coverage_cushion !== undefined ? Number(s.coverage_cushion) : null,
       homeLayout: s.home_layout ? JSON.parse(s.home_layout) : null,
+      timezone: s.timezone ?? null,
     },
   });
 });
@@ -276,6 +283,11 @@ route('PUT', '/api/settings', async (req, env) => {
       if (!ok) throw new HttpError(400, 'Unknown account');
     }
     stmts.push(upsert('bill_pay_account', id));
+  }
+  if ('timezone' in body) {
+    const tz = str(body.timezone, 'timezone', { max: 64 })!;
+    if (!isValidTimeZone(tz)) throw new HttpError(400, 'Unknown timezone');
+    stmts.push(upsert('timezone', tz));
   }
   if ('homeLayout' in body) {
     // { order: string[], hidden: string[] } of tile ids; ids are validated by shape only so new tiles need no backend change.
@@ -429,6 +441,12 @@ const MAX_CHUNKS_PER_RUN = 2;
 const RETRY_AFTER_MINUTES = 60;
 
 async function scheduledSync(env: Env): Promise<void> {
+  // Make sure every account has a snapshot for today, even on days nothing syncs (cheap, one query).
+  try {
+    await snapshotBalances(env, { overwrite: false });
+  } catch (err) {
+    console.error('daily snapshot failed', (err as Error)?.message);
+  }
   const now = Date.now();
   const staleCutoff = new Date(now - STALE_AFTER_HOURS * 3600_000).toISOString();
   const retryCutoff = new Date(now - RETRY_AFTER_MINUTES * 60_000).toISOString();

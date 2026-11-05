@@ -109,6 +109,6 @@ npm run dev:web                    # http://localhost:5173
 
 - **Sync:** the app syncs automatically when opened if the last sync is over 6 hours old. Use the refresh button to sync on demand. The first sync after linking can take a minute while Plaid gathers up to 2 years of history.
 - **Categories** come from Plaid's personal finance categories. Credit card payments and transfers between your own accounts are tagged **Transfer** and left out of income and expenses, so spending isn't double counted. Tap any transaction to recategorize it. Your choice survives future syncs.
-- **Balance history** is rebuilt from today's balances and your transaction history. Investment market moves aren't in transaction data, so brokerage balances appear flat over time.
+- **Balance history** comes from a balance snapshot saved for each account every day (on each sync, plus a daily fill-in by the background job), so it includes market moves and interest. Days before snapshots started are estimated from transactions, where investment balances look flat.
 - **Free-tier limits:** Workers on the free plan cap CPU time and subrequests per request. Sync is chunked (up to 4 Plaid pages per call) to stay within them. If you hit limits with large histories, the $5/month Workers Paid plan removes them.
 - **Passphrase strength matters.** It's the only thing between the internet and your bank data. Use a long, unique one (a password manager works well).

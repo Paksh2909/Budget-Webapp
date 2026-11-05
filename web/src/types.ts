@@ -86,6 +86,14 @@ export interface AppSettings {
   billPayAccount: string | null;
   cushion: number | null;
   homeLayout: HomeLayout | null;
+  timezone: string | null;
+}
+
+/** End-of-day balance recorded by the backend (raw bank balance: amount owed for cards). */
+export interface BalanceSnapshot {
+  date: string;
+  account_id: string;
+  current_balance: number;
 }
 
 export interface AppData {
@@ -94,6 +102,7 @@ export interface AppData {
   transactions: Txn[];
   rules: Rule[];
   statements: CardStatement[];
+  snapshots: BalanceSnapshot[];
   bills: TrackedBill[];
   settings: AppSettings;
 }

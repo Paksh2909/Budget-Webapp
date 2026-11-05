@@ -1,6 +1,6 @@
 import type { CategoryId } from './categories';
 import { addDays, daysBetween, fmt, inRange, today, toDate, type Range } from './period';
-import type { Account, Txn } from './types';
+import type { Account, BalanceSnapshot, Txn } from './types';
 
 export const MANUAL_ACCOUNT_ID = 'cash';
 
@@ -80,37 +80,80 @@ export function chartBounds(txns: Txn[], r: Range): { first: string; last: strin
 }
 
 /**
- * Reconstructs daily net worth by walking back from today's balances through posted transactions.
- * Investment market moves aren't in transaction data, so those balances are treated as flat.
+ * Daily net worth, per account:
+ *  - on days with a recorded snapshot, that real balance is used (this captures market moves,
+ *    interest, and anything else that doesn't show up as a transaction);
+ *  - between snapshots and before the first one, the balance is reconstructed by walking back
+ *    from the next known balance (snapshot, or today's balance) through posted transactions.
  */
-export function balanceSeries(accounts: Account[], txns: Txn[], r: Range) {
+export function balanceSeries(accounts: Account[], txns: Txn[], r: Range, snapshots: BalanceSnapshot[] = []) {
   const visible = accounts.filter((a) => !a.hidden);
   const ids = new Set(visible.map((a) => a.account_id));
-  const relevant = txns
-    .filter((t) => t.source === 'plaid' && !t.pending && ids.has(t.account_id))
-    .sort((a, b) => (a.date < b.date ? 1 : -1));
-  const bounds = chartBounds(relevant, r);
+  const relevant = txns.filter((t) => t.source === 'plaid' && !t.pending && ids.has(t.account_id));
+  const snaps = snapshots.filter((s) => ids.has(s.account_id));
+  const firstSnap = snaps.reduce<string | null>((m, s) => (!m || s.date < m ? s.date : m), null);
+  // The chart can start at the earliest transaction or snapshot.
+  const bounds = chartBounds(
+    firstSnap ? [...relevant, { date: firstSnap } as Txn] : relevant,
+    r,
+  );
   const now = netWorth(visible);
-  if (!bounds) return { dates: [] as string[], values: [] as number[], baseline: now, current: now };
+  if (!bounds) return { dates: [] as string[], values: [] as number[], baseline: now, current: now, firstSnapshot: firstSnap };
 
+  const t = today();
   const startBaseline = addDays(bounds.first, -1);
-  const dates: string[] = [];
-  const values: number[] = [];
-  let acc = 0;
-  let i = 0;
-  let baseline = now;
-  for (let d = today(); d >= startBaseline; d = addDays(d, -1)) {
-    while (i < relevant.length && relevant[i]!.date > d) acc += relevant[i++]!.amount;
-    const v = now + acc;
-    if (d === startBaseline) baseline = v;
-    else if (d <= bounds.last) {
-      dates.push(d);
-      values.push(v);
+  const span = daysBetween(startBaseline, t) + 1; // index 0 = today, going back
+  const total = new Array<number>(span).fill(0);
+
+  // Per-account: transaction effect by date and snapshots by date (both signed for net worth).
+  const txByAcct = new Map<string, Map<string, number>>();
+  for (const x of relevant) {
+    const m = txByAcct.get(x.account_id) ?? new Map<string, number>();
+    m.set(x.date, (m.get(x.date) ?? 0) + x.amount);
+    txByAcct.set(x.account_id, m);
+  }
+  const snapByAcct = new Map<string, Map<string, number>>();
+  for (const s of snaps) {
+    const m = snapByAcct.get(s.account_id) ?? new Map<string, number>();
+    m.set(s.date, s.current_balance);
+    snapByAcct.set(s.account_id, m);
+  }
+
+  for (const a of visible) {
+    const sign = isLiability(a) ? -1 : 1;
+    const tx = txByAcct.get(a.account_id);
+    const sn = snapByAcct.get(a.account_id);
+    let v = accountBalance(a); // today
+    let d = t;
+    for (let i = 0; i < span; i++) {
+      if (i > 0) {
+        // Step back one day: undo what posted on the day after.
+        const next = d;
+        d = addDays(d, -1);
+        v += tx?.get(next) ?? 0;
+      }
+      const snap = sn?.get(d);
+      if (snap !== undefined && d !== t) v = sign * snap;
+      total[i]! += v;
     }
   }
-  dates.reverse();
-  values.reverse();
-  return { dates, values, baseline, current: values[values.length - 1] ?? now };
+
+  const dates: string[] = [];
+  const values: number[] = [];
+  for (let i = span - 1; i >= 0; i--) {
+    const d = addDays(t, -i);
+    if (d >= bounds.first && d <= bounds.last) {
+      dates.push(d);
+      values.push(total[i]!);
+    }
+  }
+  return {
+    dates,
+    values,
+    baseline: total[span - 1]!,
+    current: values[values.length - 1] ?? now,
+    firstSnapshot: firstSnap,
+  };
 }
 
 export type Granularity = 'day' | 'month';
